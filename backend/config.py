@@ -1,15 +1,24 @@
 """
 Configuration for the FastAPI BLE Bridge server.
-Adjust BLE_DEVICE_ADDRESS if you know the MAC address of your HC-08 module.
+Adjust BLE_DEVICE_ADDRESS if you know the MAC address of your ELEGOO BT16 module.
 """
 
 # ── BLE Configuration ────────────────────────────────────────
-BLE_DEVICE_NAME = "HC-08"  # Name to scan for (case-insensitive match)
+BLE_DEVICE_NAME = "ELEGOO BT16"  # Name to scan for (case-insensitive match)
 BLE_DEVICE_ADDRESS: str | None = None  # Set MAC address to skip scanning, e.g. "AA:BB:CC:DD:EE:FF"
 
-# HC-08 BLE UART Service & Characteristic UUIDs
+# ELEGOO BT16 BLE UART Service & Characteristic UUIDs
+# BT16 uses SEPARATE characteristics for Notify vs Write (unlike HC-08 which uses FFE1 for both)
 BLE_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
-BLE_CHAR_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+BLE_CHAR_NOTIFY_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"  # Subscribe to notifications (RX from Arduino)
+BLE_CHAR_WRITE_UUID = "0000ffe2-0000-1000-8000-00805f9b34fb"   # Write commands (TX to Arduino)
+
+# ELEGOO BT16 BLE MTU / Write Chunking
+# BT16 default MTU is 23 bytes → max payload per write is 20 bytes.
+# Commands longer than this must be split into chunks.
+BLE_MTU_SIZE = 23
+BLE_WRITE_CHUNK_SIZE = 20  # Safe payload size per BLE write
+BLE_CHUNK_DELAY = 0.05  # Seconds between chunked writes
 
 # ── Telemetry Polling ────────────────────────────────────────
 TELEMETRY_INTERVAL = 1.0  # Seconds between distance sensor polls

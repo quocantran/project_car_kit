@@ -1,7 +1,7 @@
 """
 JSON protocol encoder/decoder for the Elegoo Smart Robot Car V3.0 Plus.
 
-The Arduino firmware communicates via JSON commands over UART (through HC-08 BLE).
+The Arduino firmware communicates via JSON commands over UART (through HC-02 BLE).
 Each command is a JSON object with fields: N (command code), D1, D2, D3, T, H.
 
 Command Reference (from SmartCar_Core_20210127.ino):

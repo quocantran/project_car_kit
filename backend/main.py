@@ -72,14 +72,14 @@ async def lifespan(app: FastAPI):
 
 
 async def _auto_connect():
-    """Try to auto-connect to HC-08 on startup."""
+    """Try to auto-connect to HC-02 on startup."""
     await asyncio.sleep(1)  # Give server a moment to start
     try:
         result = await ble_service.connect()
         if result:
-            logger.info("✅ Auto-connected to HC-08")
+            logger.info("✅ Auto-connected to HC-02")
         else:
-            logger.info("⚠️  HC-08 not found — use POST /api/connect to connect manually")
+            logger.info("⚠️  HC-02 not found — use POST /api/connect to connect manually")
     except Exception as e:
         logger.info(f"⚠️  Auto-connect failed: {e} — use POST /api/connect")
 
@@ -132,7 +132,7 @@ async def get_status():
 
 @app.post("/api/connect", response_model=CommandResponse, tags=["Connection"])
 async def connect_ble(request: ConnectRequest = ConnectRequest()):
-    """Scan for and connect to the HC-08 BLE module on the robot."""
+    """Scan for and connect to the HC-02 BLE module on the robot."""
     result = await ble_service.connect(request.device_address)
     if result:
         return CommandResponse(
@@ -141,7 +141,7 @@ async def connect_ble(request: ConnectRequest = ConnectRequest()):
         )
     raise HTTPException(
         status_code=503,
-        detail="Failed to connect to HC-08. Make sure the robot is powered on and Bluetooth is enabled on this computer.",
+        detail="Failed to connect to HC-02. Make sure the robot is powered on and Bluetooth is enabled on this computer.",
     )
 
 

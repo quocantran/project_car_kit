@@ -1,9 +1,16 @@
 """
-BLE Service — Manages Bluetooth Low Energy connection to HC-08 module.
+BLE Service — Manages Bluetooth Low Energy connection to ELEGOO BT16 module.
 
 Uses the `bleak` library for async BLE communication.
-The HC-08 module exposes a single GATT characteristic (FFE1) for both
-reading (via notifications) and writing (via write_gatt_char).
+The ELEGOO BT16 (DX-BT16) is a BLE 4.2 transparent transmission module that
+exposes two GATT characteristics under service FFE0:
+  - FFE1: Notify/Read (receive data FROM Arduino)
+  - FFE2: Write (send commands TO Arduino)
+
+Key BT16 considerations:
+- Default MTU is 23 bytes → max write payload is 20 bytes per packet.
+- Commands longer than 20 bytes must be split into chunks.
+- Uses Write Without Response on FFE2.
 """
 
 import asyncio
@@ -14,11 +21,14 @@ from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
 from config import (
-    BLE_CHAR_UUID,
+    BLE_CHAR_NOTIFY_UUID,
+    BLE_CHAR_WRITE_UUID,
+    BLE_CHUNK_DELAY,
     BLE_DEVICE_ADDRESS,
     BLE_DEVICE_NAME,
     BLE_RESPONSE_TIMEOUT,
     BLE_SCAN_TIMEOUT,
+    BLE_WRITE_CHUNK_SIZE,
     TELEMETRY_INTERVAL,
 )
 from car_protocol import (
@@ -35,12 +45,13 @@ logger = logging.getLogger("ble_service")
 
 class BLEService:
     """
-    Manages the BLE connection lifecycle to the HC-08 module on the robot car.
+    Manages the BLE connection lifecycle to the ELEGOO BT16 module on the robot car.
 
     Features:
-    - Auto-scan for HC-08 device by name
+    - Auto-scan for ELEGOO BT16 device by name
     - Persistent connection with auto-reconnect awareness
-    - Send JSON commands and await responses
+    - Send JSON commands via FFE2 and receive responses via FFE1
+    - Chunked BLE writes for commands exceeding 20-byte MTU payload
     - Background telemetry polling loop
     - Broadcast telemetry to registered WebSocket listeners
     """
@@ -87,10 +98,10 @@ class BLEService:
 
     async def connect(self, device_address: Optional[str] = None) -> bool:
         """
-        Connect to the HC-08 BLE module.
+        Connect to the HC-02 BLE module.
 
         Args:
-            device_address: MAC address to connect to. If None, scans for HC-08.
+            device_address: MAC address to connect to. If None, scans for HC-02.
 
         Returns:
             True if connection successful.
@@ -101,7 +112,7 @@ class BLEService:
 
         target_address = device_address or BLE_DEVICE_ADDRESS
 
-        # If no address provided, scan for HC-08
+        # If no address provided, scan for HC-02
         if not target_address:
             logger.info(f"Scanning for device named '{BLE_DEVICE_NAME}'...")
             devices = await BleakScanner.discover(timeout=BLE_SCAN_TIMEOUT)
@@ -135,7 +146,7 @@ class BLEService:
                     self.device_name = BLE_DEVICE_NAME
 
                 # Subscribe to notifications
-                await self.client.start_notify(BLE_CHAR_UUID, self._on_notification)
+                await self.client.start_notify(BLE_CHAR_NOTIFY_UUID, self._on_notification)
                 logger.info(f"Connected to {self.device_name} [{self.device_address}]")
 
                 # Start telemetry polling
@@ -179,7 +190,7 @@ class BLEService:
             # Stop notifications and disconnect
             if self.client and self.client.is_connected:
                 try:
-                    await self.client.stop_notify(BLE_CHAR_UUID)
+                    await self.client.stop_notify(BLE_CHAR_NOTIFY_UUID)
                 except Exception:
                     pass
                 await self.client.disconnect()
@@ -234,7 +245,7 @@ class BLEService:
     def _on_notification(self, sender, data: bytearray):
         """
         Callback when data is received from Arduino via BLE notification.
-        HC-08 sends data as raw bytes representing the UART output.
+        HC-02 sends data as raw bytes representing the UART output.
         """
         try:
             decoded = data.decode("utf-8", errors="replace")
@@ -282,9 +293,9 @@ class BLEService:
             self._response_event.clear()
             self._last_response = None
 
-            # Write command to BLE characteristic
+            # Encode command and write via chunked BLE write
             cmd_bytes = command.encode("utf-8")
-            await self.client.write_gatt_char(BLE_CHAR_UUID, cmd_bytes)
+            await self._write_chunked(cmd_bytes)
             logger.debug(f"BLE TX: {command}")
 
             if wait_response:
@@ -305,6 +316,23 @@ class BLEService:
         except Exception as e:
             logger.error(f"Send command error: {e}")
             return None
+
+    async def _write_chunked(self, data: bytes):
+        """
+        Write data to BLE characteristic (FFE2) in chunks of BLE_WRITE_CHUNK_SIZE.
+
+        ELEGOO BT16 has a default MTU of 23 bytes (20-byte payload). Commands
+        longer than 20 bytes must be split into multiple BLE write operations
+        with a short delay between each chunk to allow the module to process.
+        """
+        for i in range(0, len(data), BLE_WRITE_CHUNK_SIZE):
+            chunk = data[i : i + BLE_WRITE_CHUNK_SIZE]
+            await self.client.write_gatt_char(
+                BLE_CHAR_WRITE_UUID, chunk, response=False
+            )
+            # Add delay between chunks so BT16 can process each one
+            if i + BLE_WRITE_CHUNK_SIZE < len(data):
+                await asyncio.sleep(BLE_CHUNK_DELAY)
 
     # ── High-Level Car Control ───────────────────────────────
 
