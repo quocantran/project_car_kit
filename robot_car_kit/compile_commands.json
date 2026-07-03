@@ -1,0 +1,320 @@
+[
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/CDC.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/CDC.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/CDC.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/CDC.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/HardwareSerial.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/HardwareSerial.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/HardwareSerial0.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial0.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial0.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/HardwareSerial0.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/HardwareSerial1.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial1.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial1.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/HardwareSerial1.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/HardwareSerial2.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial2.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial2.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/HardwareSerial2.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/HardwareSerial3.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial3.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/HardwareSerial3.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/HardwareSerial3.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/IPAddress.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/IPAddress.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/IPAddress.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/IPAddress.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/PluggableUSB.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/PluggableUSB.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/PluggableUSB.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/PluggableUSB.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/Print.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Print.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Print.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/Print.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/Stream.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Stream.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Stream.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/Stream.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/Tone.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Tone.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/Tone.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/Tone.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/USBCore.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/USBCore.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/USBCore.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/USBCore.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/WInterrupts.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WInterrupts.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WInterrupts.c",
+        "output": ".pio/build/uno/FrameworkArduino/WInterrupts.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/WMath.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WMath.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WMath.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/WMath.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/WString.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WString.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/WString.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/WString.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/abi.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/abi.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/abi.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/abi.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/hooks.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/hooks.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/hooks.c",
+        "output": ".pio/build/uno/FrameworkArduino/hooks.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/main.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/main.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/main.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/main.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/FrameworkArduino/new.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/new.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/new.cpp",
+        "output": ".pio/build/uno/FrameworkArduino/new.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/wiring.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring.c",
+        "output": ".pio/build/uno/FrameworkArduino/wiring.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/wiring_analog.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_analog.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_analog.c",
+        "output": ".pio/build/uno/FrameworkArduino/wiring_analog.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/wiring_digital.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_digital.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_digital.c",
+        "output": ".pio/build/uno/FrameworkArduino/wiring_digital.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -mmcu=atmega328p -x assembler-with-cpp -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard -c -o .pio/build/uno/FrameworkArduino/wiring_pulse.S.o /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_pulse.S",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_pulse.S",
+        "output": ".pio/build/uno/FrameworkArduino/wiring_pulse.S.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/wiring_pulse.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_pulse.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_pulse.c",
+        "output": ".pio/build/uno/FrameworkArduino/wiring_pulse.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-gcc -o .pio/build/uno/FrameworkArduino/wiring_shift.c.o -c -std=gnu11 -fno-fat-lto-objects -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_shift.c",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino/wiring_shift.c",
+        "output": ".pio/build/uno/FrameworkArduino/wiring_shift.c.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/IRremote.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/IRremote.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/IRremote.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/IRremote.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/irPronto.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/irPronto.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/irPronto.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/irPronto.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/irRecv.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/irRecv.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/irRecv.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/irRecv.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/irSend.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/irSend.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/irSend.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/irSend.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Aiwa.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Aiwa.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Aiwa.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Aiwa.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Denon.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Denon.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Denon.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Denon.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Dish.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Dish.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Dish.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Dish.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_JVC.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_JVC.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_JVC.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_JVC.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_LG.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_LG.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_LG.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_LG.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Lego_PF.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Lego_PF.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Lego_PF.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Lego_PF.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Mitsubishi.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Mitsubishi.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Mitsubishi.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Mitsubishi.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_NEC.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_NEC.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_NEC.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_NEC.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Panasonic.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Panasonic.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Panasonic.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Panasonic.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_RC5_RC6.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_RC5_RC6.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_RC5_RC6.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_RC5_RC6.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Samsung.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Samsung.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Samsung.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Samsung.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Sanyo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Sanyo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Sanyo.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Sanyo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Sharp.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Sharp.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Sharp.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Sharp.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Sony.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Sony.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Sony.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Sony.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Template.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Template.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Template.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Template.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/liba80/IRremote/ir_Whynter.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/IRremote/ir_Whynter.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/IRremote/ir_Whynter.cpp",
+        "output": ".pio/build/uno/liba80/IRremote/ir_Whynter.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/avr/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/avr/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/avr/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/avr/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/megaavr/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/megaavr/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/megaavr/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/megaavr/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/nrf52/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/nrf52/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/nrf52/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/nrf52/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/sam/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/sam/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/sam/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/sam/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/samd/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/samd/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/samd/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/samd/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/libbf2/Servo/stm32f4/Servo.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard /home/ddd/Arduino/libraries/Servo/src/stm32f4/Servo.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "/home/ddd/Arduino/libraries/Servo/src/stm32f4/Servo.cpp",
+        "output": ".pio/build/uno/libbf2/Servo/stm32f4/Servo.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/src/MsTimer2.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I. -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard MsTimer2.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "MsTimer2.cpp",
+        "output": ".pio/build/uno/src/MsTimer2.cpp.o"
+    },
+    {
+        "command": "/home/ddd/.platformio/packages/toolchain-atmelavr/bin/avr-g++ -o .pio/build/uno/src/SmartCar_Core_20210127.ino.cpp.o -c -fno-exceptions -fno-threadsafe-statics -fpermissive -std=gnu++11 -mmcu=atmega328p -Os -Wall -ffunction-sections -fdata-sections -flto -DPLATFORMIO=60119 -DARDUINO_AVR_UNO -DF_CPU=16000000L -DARDUINO_ARCH_AVR -DARDUINO=10808 -I. -I/home/ddd/Arduino/libraries/Servo/src -I/home/ddd/Arduino/libraries/IRremote -I/home/ddd/.platformio/packages/framework-arduino-avr/cores/arduino -I/home/ddd/.platformio/packages/framework-arduino-avr/variants/standard SmartCar_Core_20210127.ino.cpp",
+        "directory": "/home/ddd/Downloads/ELEGOO Smart Robot Car Kit V3.0 Plus 2021.01.29/Main program/SmartCar_Core_20210127",
+        "file": "SmartCar_Core_20210127.ino.cpp",
+        "output": ".pio/build/uno/src/SmartCar_Core_20210127.ino.cpp.o"
+    }
+]
