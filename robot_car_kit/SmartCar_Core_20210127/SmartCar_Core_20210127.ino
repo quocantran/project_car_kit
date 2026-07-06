@@ -59,6 +59,10 @@ const int ObstacleDetection = 35;
 #define carSpeed 250 // PWM(Motor speed/Speed)
 
 unsigned int carSpeed_rocker = 250;
+
+// Throttle getDistance() to avoid blocking serial reads
+unsigned long lastDistanceMillis = 0;
+#define DISTANCE_INTERVAL 500  // Only read distance every 500ms
 #define PIN_Servo 3
 Servo servo;             //  Create a DC motor drive object
 IRrecv irrecv(RECV_PIN); //  Create an infrared receive drive object
@@ -138,12 +142,11 @@ unsigned int getDistance(void) { // Getting distance
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
-  tempda_x = ((unsigned int)pulseIn(ECHO_PIN, HIGH) / 58);
-  // tempda = tempda_x;
+  // Use 30ms timeout instead of default 1s to avoid blocking serial reads
+  tempda_x = ((unsigned int)pulseIn(ECHO_PIN, HIGH, 30000) / 58);
   if (tempda_x > 150) {
     tempda_x = 150;
   }
-  // return tempda;
   return tempda_x;
 }
 /*
@@ -815,10 +818,16 @@ void getBTData_Plus(void) {
     if (!error) // Check if deserialization is successful
     {
       int control_mode_N = doc["N"];
-      char buf[3];
+      char buf[8];  // Fixed: was buf[3], overflows when H >= 100 (e.g. "176\0" = 4 bytes)
       uint8_t temp = doc["H"];
       sprintf(buf, "%d", temp);
       CommandSerialNumber = buf; // Get the serial number of the new command
+      // Debug echo: confirm Arduino received and parsed the command
+      Serial.print("{\"dbg\":\"N=");
+      Serial.print(control_mode_N);
+      Serial.print(",H=");
+      Serial.print(temp);
+      Serial.println("\"}");
       switch (control_mode_N) {
       case 1: /*Motion module  processing <command：N 1>*/
       {
@@ -995,14 +1004,18 @@ void setup(void) {
 }
 
 void loop(void) {
-  getBTData_Plus();           // Bluetooth data acquisition
+  getBTData_Plus();           // Serial/Bluetooth data acquisition
   getIRData();                // Infrared data acquisition
   bluetooth_mode();           // Bluetooth remote mode
   irremote_mode();            // Infrared NEC remote control mode
   line_teacking_mode();       // Line Teacking Mode
   obstacles_avoidance_mode(); // Obstacles Avoidance Mode
 
-  CMD_Distance = getDistance(); // Ultrasonic measurement distance
+  // Throttle distance reads to avoid blocking serial (pulseIn is slow)
+  if (millis() - lastDistanceMillis >= DISTANCE_INTERVAL) {
+    CMD_Distance = getDistance();
+    lastDistanceMillis = millis();
+  }
   /*CMD_MotorControl: Motor Control： Motor Speed、Motor Direction、Motor Time*/
   CMD_MotorControl_Plus(CMD_MotorSelection, CMD_MotorDirection,
                         CMD_MotorSpeed); // Control motor steering

@@ -285,7 +285,7 @@ class SerialService:
     def _process_incoming_data(self, data: str):
         """Process data received from Arduino."""
         self._response_buffer += data
-        logger.debug(f"Serial RX: {data.strip()}")
+        logger.info(f"📥 Serial RX: {data.strip()}")
 
         # Check if we have a complete response (ends with })
         while "}" in self._response_buffer:
@@ -335,7 +335,7 @@ class SerialService:
             self._last_response = None
 
             # Write command directly — no chunking needed for USB Serial!
-            cmd_bytes = command.encode("utf-8")
+            cmd_bytes = (command + "\n").encode("utf-8")  # Add newline for cleaner framing
             self._serial.write(cmd_bytes)
             self._serial.flush()
             logger.info(f"📤 Serial TX ({len(cmd_bytes)} bytes): {command}")
