@@ -227,7 +227,7 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
 
   const connectBLE = useCallback(
     (address?: string) => {
-      sendJSON({ type: "connect", device_address: address });
+      sendJSON({ type: "connect", serial_port: address });
     },
     [sendJSON]
   );

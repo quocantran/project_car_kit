@@ -332,6 +332,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if msg_type == "control":
                 direction = msg.get("direction", "stop")
                 speed = msg.get("speed", 200)
+                logger.info(f"📥 Control command: direction={direction}, speed={speed}, serial_connected={serial_service.is_connected}")
                 if serial_service.is_connected:
                     await serial_service.move(direction, speed)
                     await websocket.send_json({
@@ -339,9 +340,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         "data": {"success": True, "message": f"Moving {direction} at {speed}"},
                     })
                 else:
+                    logger.warning("⚠️  Cannot move — Serial NOT connected to Arduino!")
                     await websocket.send_json({
                         "type": "error",
-                        "data": {"message": "Not connected to Arduino"},
+                        "data": {"message": "Not connected to Arduino. Use connect button or check USB cable."},
                     })
 
             elif msg_type == "speed":

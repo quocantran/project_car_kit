@@ -28,8 +28,8 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://localhost:8000",
-    # Allow any device on local network to access
-    # Add your Pi's IP here, e.g. "http://192.168.1.100:3000"
+    "http://192.168.50.254:3000",
+    "*",  # Allow any device on local WiFi network
 ]
 
 # ── Arduino Protocol Defaults ────────────────────────────────

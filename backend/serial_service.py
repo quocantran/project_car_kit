@@ -335,9 +335,10 @@ class SerialService:
             self._last_response = None
 
             # Write command directly — no chunking needed for USB Serial!
-            self._serial.write(command.encode("utf-8"))
+            cmd_bytes = command.encode("utf-8")
+            self._serial.write(cmd_bytes)
             self._serial.flush()
-            logger.debug(f"Serial TX: {command}")
+            logger.info(f"📤 Serial TX ({len(cmd_bytes)} bytes): {command}")
 
             if wait_response:
                 try:
@@ -363,6 +364,7 @@ class SerialService:
     async def move(self, direction: str, speed: int = 200) -> Optional[dict]:
         """Send a movement command to the car."""
         cmd = build_move_command(direction, speed)
+        logger.info(f"🚗 MOVE: direction={direction}, speed={speed}, cmd={cmd}")
         self.current_direction = direction
         self.current_speed = speed if direction != "stop" else 0
         self.current_mode = "bluetooth"
