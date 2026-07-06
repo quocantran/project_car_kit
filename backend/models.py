@@ -1,5 +1,5 @@
 """
-Pydantic models for the FastAPI BLE Bridge API.
+Pydantic models for the FastAPI Serial Bridge API.
 """
 
 from typing import Literal, Optional
@@ -33,19 +33,19 @@ class ModeCommand(BaseModel):
 
 
 class ConnectRequest(BaseModel):
-    """Optional: specify device address to connect to."""
-    device_address: Optional[str] = Field(
-        None, description="BLE MAC address (e.g. 'AA:BB:CC:DD:EE:FF'). Auto-scan if None."
+    """Optional: specify serial port to connect to."""
+    serial_port: Optional[str] = Field(
+        None, description="Serial port path (e.g. '/dev/ttyACM0'). Auto-detect if None."
     )
 
 
 # ── Response Models ──────────────────────────────────────────
 
-class BLEStatus(BaseModel):
-    """BLE connection status."""
+class ConnectionStatus(BaseModel):
+    """Serial connection status."""
     is_connected: bool
-    device_name: Optional[str] = None
-    device_address: Optional[str] = None
+    serial_port: Optional[str] = None
+    baudrate: Optional[int] = None
 
 
 class TelemetryData(BaseModel):
@@ -61,7 +61,7 @@ class TelemetryData(BaseModel):
 
 class StatusResponse(BaseModel):
     """Combined status response."""
-    ble: BLEStatus
+    connection: ConnectionStatus
     telemetry: TelemetryData
 
 

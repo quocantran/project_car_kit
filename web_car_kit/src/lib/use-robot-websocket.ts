@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { TelemetryData, ConnectionStatus } from "@/types";
 
-const WS_URL = "ws://localhost:8000/ws";
+const WS_URL = "ws://192.168.50.254:8000/ws";
 const RECONNECT_DELAY = 3000; // ms
 
 interface RobotTelemetry {
@@ -132,7 +132,7 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
     ws.onerror = (err) => {
       console.error("[WS] Error:", err);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMessage = useCallback((msg: { type: string; data: Record<string, unknown> }) => {

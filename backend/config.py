@@ -1,27 +1,22 @@
 """
-Configuration for the FastAPI BLE Bridge server.
-Adjust BLE_DEVICE_ADDRESS if you know the MAC address of your ELEGOO BT16 module.
+Configuration for the FastAPI Serial Bridge server (Raspberry Pi 4).
+Arduino is connected via USB Serial cable.
 """
 
-# ── BLE Configuration ────────────────────────────────────────
-BLE_DEVICE_NAME = "ELEGOO BT16"  # Name to scan for (case-insensitive match)
-BLE_DEVICE_ADDRESS: str | None = None  # Set MAC address to skip scanning, e.g. "AA:BB:CC:DD:EE:FF"
+# ── Serial Configuration ─────────────────────────────────────
+SERIAL_PORT: str | None = None  # Set to "/dev/ttyACM0" or "/dev/ttyUSB0". None = auto-detect
+SERIAL_BAUDRATE = 115200
+SERIAL_TIMEOUT = 1.0  # Seconds for serial read timeout
+SERIAL_RECONNECT_DELAY = 3.0  # Seconds between reconnect attempts
 
-# ELEGOO BT16 BLE UART Service & Characteristic UUIDs
-# BT16 uses SEPARATE characteristics for Notify vs Write (unlike HC-08 which uses FFE1 for both)
-BLE_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
-BLE_CHAR_NOTIFY_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"  # Subscribe to notifications (RX from Arduino)
-BLE_CHAR_WRITE_UUID = "0000ffe2-0000-1000-8000-00805f9b34fb"   # Write commands (TX to Arduino)
-
-# ELEGOO BT16 BLE MTU / Write Chunking
-# BT16 default MTU is 23 bytes → max payload per write is 20 bytes.
-# Commands longer than this must be split into chunks.
-BLE_MTU_SIZE = 23
-BLE_WRITE_CHUNK_SIZE = 20  # Safe payload size per BLE write
-BLE_CHUNK_DELAY = 0.05  # Seconds between chunked writes
+# Auto-detect patterns (scanned in order)
+SERIAL_PORT_PATTERNS = [
+    "/dev/ttyACM*",   # Arduino Uno, Mega (ATmega16U2)
+    "/dev/ttyUSB*",   # Arduino Nano, clones (CH340, CP2102)
+]
 
 # ── Telemetry Polling ────────────────────────────────────────
-TELEMETRY_INTERVAL = 1.0  # Seconds between distance sensor polls
+TELEMETRY_INTERVAL = 1.0  # Seconds between telemetry polls
 
 # ── Server Configuration ─────────────────────────────────────
 SERVER_HOST = "0.0.0.0"
@@ -32,6 +27,9 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
+    "http://localhost:8000",
+    # Allow any device on local network to access
+    # Add your Pi's IP here, e.g. "http://192.168.1.100:3000"
 ]
 
 # ── Arduino Protocol Defaults ────────────────────────────────
@@ -40,5 +38,4 @@ MAX_SPEED = 255
 MIN_SPEED = 0
 SERVO_MIN_ANGLE = 5
 SERVO_MAX_ANGLE = 175
-BLE_RESPONSE_TIMEOUT = 2.0  # Seconds to wait for Arduino response
-BLE_SCAN_TIMEOUT = 10.0  # Seconds to scan for BLE devices
+SERIAL_RESPONSE_TIMEOUT = 2.0  # Seconds to wait for Arduino response

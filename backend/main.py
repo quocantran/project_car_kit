@@ -1,14 +1,14 @@
 """
-FastAPI BLE Bridge — Main Application
+FastAPI Serial Bridge — Main Application
 
 REST API + WebSocket server that bridges the Next.js frontend
-with the Elegoo Smart Robot Car V3.0 Plus via Bluetooth Low Energy.
+with the Elegoo Smart Robot Car V3.0 Plus via USB Serial on Raspberry Pi 4.
 
 Run with:
     cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Swagger docs:
-    http://localhost:8000/docs
+    http://<pi-ip>:8000/docs
 """
 
 import asyncio
@@ -21,15 +21,15 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS, SERVER_HOST, SERVER_PORT
-from ble_service import BLEService
+from serial_service import SerialService
 from car_protocol import (
     build_mode_command,
     build_reset_command,
     build_servo_command,
 )
 from models import (
-    BLEStatus,
     CommandResponse,
+    ConnectionStatus,
     ConnectRequest,
     ControlCommand,
     DistanceResponse,
@@ -48,47 +48,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-# ── Shared BLE Service Instance ──────────────────────────────
-ble_service = BLEService()
+# ── Shared Serial Service Instance ───────────────────────────
+serial_service = SerialService()
 
 
 # ── App Lifespan ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    logger.info("🚗 FastAPI BLE Bridge starting...")
-    logger.info("   Swagger UI: http://localhost:8000/docs")
-    logger.info("   WebSocket:  ws://localhost:8000/ws")
+    logger.info("🚗 FastAPI Serial Bridge starting on Raspberry Pi...")
+    logger.info("   Swagger UI: http://0.0.0.0:8000/docs")
+    logger.info("   WebSocket:  ws://0.0.0.0:8000/ws")
 
     # Attempt auto-connect on startup (non-blocking)
     asyncio.create_task(_auto_connect())
 
     yield
 
-    # Shutdown: disconnect BLE
-    logger.info("Shutting down — disconnecting BLE...")
-    await ble_service.disconnect()
+    # Shutdown: disconnect serial
+    logger.info("Shutting down — disconnecting serial...")
+    await serial_service.disconnect()
     logger.info("Goodbye!")
 
 
 async def _auto_connect():
-    """Try to auto-connect to HC-02 on startup."""
+    """Try to auto-connect to Arduino on startup."""
     await asyncio.sleep(1)  # Give server a moment to start
     try:
-        result = await ble_service.connect()
+        result = await serial_service.connect()
         if result:
-            logger.info("✅ Auto-connected to HC-02")
+            logger.info(f"✅ Auto-connected to Arduino on {serial_service.serial_port}")
         else:
-            logger.info("⚠️  HC-02 not found — use POST /api/connect to connect manually")
+            logger.info("⚠️  Arduino not found — use POST /api/connect to connect manually")
     except Exception as e:
         logger.info(f"⚠️  Auto-connect failed: {e} — use POST /api/connect")
 
 
 # ── FastAPI App ──────────────────────────────────────────────
 app = FastAPI(
-    title="Robot Car BLE Bridge",
-    description="FastAPI backend that bridges the web dashboard with the Elegoo Smart Robot Car V3.0 via Bluetooth Low Energy.",
-    version="1.0.0",
+    title="Robot Car Serial Bridge",
+    description="FastAPI backend that bridges the web dashboard with the Elegoo Smart Robot Car V3.0 via USB Serial on Raspberry Pi 4.",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -111,52 +111,54 @@ app.add_middleware(
 async def root():
     """Health check endpoint."""
     return {
-        "service": "Robot Car BLE Bridge",
-        "version": "1.0.0",
-        "ble_connected": ble_service.is_connected,
+        "service": "Robot Car Serial Bridge",
+        "version": "2.0.0",
+        "platform": "Raspberry Pi 4",
+        "serial_connected": serial_service.is_connected,
+        "serial_port": serial_service.serial_port,
     }
 
 
-# ── BLE Connection ───────────────────────────────────────────
+# ── Serial Connection ───────────────────────────────────────
 
 @app.get("/api/status", response_model=StatusResponse, tags=["Status"])
 async def get_status():
-    """Get current BLE connection status and telemetry data."""
-    telemetry = ble_service.get_telemetry()
-    ble_status = ble_service.get_ble_status()
+    """Get current serial connection status and telemetry data."""
+    telemetry = serial_service.get_telemetry()
+    conn_status = serial_service.get_connection_status()
     return StatusResponse(
-        ble=BLEStatus(**ble_status),
+        connection=ConnectionStatus(**conn_status),
         telemetry=TelemetryData(**telemetry),
     )
 
 
 @app.post("/api/connect", response_model=CommandResponse, tags=["Connection"])
-async def connect_ble(request: ConnectRequest = ConnectRequest()):
-    """Scan for and connect to the HC-02 BLE module on the robot."""
-    result = await ble_service.connect(request.device_address)
+async def connect_serial(request: ConnectRequest = ConnectRequest()):
+    """Connect to Arduino via USB Serial. Auto-detects port if not specified."""
+    result = await serial_service.connect(request.serial_port)
     if result:
         return CommandResponse(
             success=True,
-            message=f"Connected to {ble_service.device_name} [{ble_service.device_address}]",
+            message=f"Connected to Arduino on {serial_service.serial_port} at {serial_service.baudrate} baud",
         )
     raise HTTPException(
         status_code=503,
-        detail="Failed to connect to HC-02. Make sure the robot is powered on and Bluetooth is enabled on this computer.",
+        detail="Failed to connect to Arduino. Make sure Arduino is connected via USB cable to Raspberry Pi.",
     )
 
 
 @app.post("/api/disconnect", response_model=CommandResponse, tags=["Connection"])
-async def disconnect_ble():
-    """Disconnect from the robot's BLE module."""
-    await ble_service.disconnect()
-    return CommandResponse(success=True, message="Disconnected from BLE device")
+async def disconnect_serial():
+    """Disconnect from Arduino serial port."""
+    await serial_service.disconnect()
+    return CommandResponse(success=True, message="Disconnected from Arduino")
 
 
-@app.get("/api/scan", tags=["Connection"])
-async def scan_ble_devices():
-    """Scan for nearby BLE devices."""
-    devices = await ble_service.scan_devices()
-    return {"devices": devices, "count": len(devices)}
+@app.get("/api/ports", tags=["Connection"])
+async def list_ports():
+    """List all available serial ports on the Raspberry Pi."""
+    ports = serial_service.list_serial_ports()
+    return {"ports": ports, "count": len(ports)}
 
 
 # ── Car Control ──────────────────────────────────────────────
@@ -169,10 +171,10 @@ async def control_car(command: ControlCommand):
     Directions: forward, back, left, right, stop, forward_left, back_left, forward_right, back_right.
     Speed: 0-255 (PWM duty cycle).
     """
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
-    await ble_service.move(command.direction, command.speed)
+    await serial_service.move(command.direction, command.speed)
     return CommandResponse(
         success=True,
         message=f"Moving {command.direction} at speed {command.speed}",
@@ -182,10 +184,10 @@ async def control_car(command: ControlCommand):
 @app.post("/api/speed", response_model=CommandResponse, tags=["Control"])
 async def update_speed(update: SpeedUpdate):
     """Update the car's speed without changing direction."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
-    await ble_service.set_speed(update.speed)
+    await serial_service.set_speed(update.speed)
     return CommandResponse(
         success=True,
         message=f"Speed updated to {update.speed} ({int(update.speed / 255 * 100)}%)",
@@ -195,21 +197,21 @@ async def update_speed(update: SpeedUpdate):
 @app.post("/api/stop", response_model=CommandResponse, tags=["Control"])
 async def stop_car():
     """Emergency stop — immediately stops all motors."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
-    await ble_service.stop()
+    await serial_service.stop()
     return CommandResponse(success=True, message="Car stopped")
 
 
 @app.post("/api/servo", response_model=CommandResponse, tags=["Control"])
 async def control_servo(command: ServoCommand):
     """Set the ultrasonic sensor servo angle (5-175 degrees)."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
     cmd = build_servo_command(command.angle)
-    response = await ble_service.send_command(cmd)
+    response = await serial_service.send_command(cmd)
     return CommandResponse(
         success=True,
         message=f"Servo set to {command.angle}°",
@@ -220,12 +222,12 @@ async def control_servo(command: ServoCommand):
 @app.post("/api/mode", response_model=CommandResponse, tags=["Control"])
 async def set_mode(command: ModeCommand):
     """Switch to autonomous driving mode (line tracking or obstacle avoidance)."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
     cmd = build_mode_command(command.mode)
-    ble_service.current_mode = command.mode
-    response = await ble_service.send_command(cmd)
+    serial_service.current_mode = command.mode
+    response = await serial_service.send_command(cmd)
     return CommandResponse(
         success=True,
         message=f"Mode set to {command.mode}",
@@ -236,14 +238,14 @@ async def set_mode(command: ModeCommand):
 @app.post("/api/reset", response_model=CommandResponse, tags=["Control"])
 async def reset_car():
     """Reset all functions and stop the car (N=5 command)."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
     cmd = build_reset_command()
-    response = await ble_service.send_command(cmd)
-    ble_service.current_direction = "stop"
-    ble_service.current_speed = 0
-    ble_service.current_mode = "idle"
+    response = await serial_service.send_command(cmd)
+    serial_service.current_direction = "stop"
+    serial_service.current_speed = 0
+    serial_service.current_mode = "idle"
     return CommandResponse(
         success=True,
         message="All functions reset",
@@ -256,10 +258,10 @@ async def reset_car():
 @app.get("/api/distance", response_model=DistanceResponse, tags=["Sensors"])
 async def get_distance():
     """Read the ultrasonic distance sensor (cm)."""
-    if not ble_service.is_connected:
-        raise HTTPException(status_code=503, detail="Not connected to robot")
+    if not serial_service.is_connected:
+        raise HTTPException(status_code=503, detail="Not connected to Arduino")
 
-    distance = await ble_service.get_distance()
+    distance = await serial_service.get_distance()
     return DistanceResponse(
         distance_cm=distance,
         has_obstacle=distance < 35,
@@ -299,16 +301,16 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception:
             pass
 
-    ble_service.add_listener(ws_listener)
+    serial_service.add_listener(ws_listener)
 
     # Send initial status
     await websocket.send_json({
         "type": "connection_status",
-        "data": ble_service.get_ble_status(),
+        "data": serial_service.get_connection_status(),
     })
     await websocket.send_json({
         "type": "telemetry",
-        "data": ble_service.get_telemetry(),
+        "data": serial_service.get_telemetry(),
     })
 
     try:
@@ -330,8 +332,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if msg_type == "control":
                 direction = msg.get("direction", "stop")
                 speed = msg.get("speed", 200)
-                if ble_service.is_connected:
-                    await ble_service.move(direction, speed)
+                if serial_service.is_connected:
+                    await serial_service.move(direction, speed)
                     await websocket.send_json({
                         "type": "command_response",
                         "data": {"success": True, "message": f"Moving {direction} at {speed}"},
@@ -339,13 +341,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 else:
                     await websocket.send_json({
                         "type": "error",
-                        "data": {"message": "Not connected to robot"},
+                        "data": {"message": "Not connected to Arduino"},
                     })
 
             elif msg_type == "speed":
                 speed = msg.get("speed", 200)
-                if ble_service.is_connected:
-                    await ble_service.set_speed(speed)
+                if serial_service.is_connected:
+                    await serial_service.set_speed(speed)
                     await websocket.send_json({
                         "type": "command_response",
                         "data": {"success": True, "message": f"Speed set to {speed}"},
@@ -353,9 +355,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif msg_type == "servo":
                 angle = msg.get("angle", 90)
-                if ble_service.is_connected:
+                if serial_service.is_connected:
                     cmd = build_servo_command(angle)
-                    await ble_service.send_command(cmd)
+                    await serial_service.send_command(cmd)
                     await websocket.send_json({
                         "type": "command_response",
                         "data": {"success": True, "message": f"Servo set to {angle}°"},
@@ -363,40 +365,40 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif msg_type == "mode":
                 mode = msg.get("mode", "line_tracking")
-                if ble_service.is_connected:
+                if serial_service.is_connected:
                     cmd = build_mode_command(mode)
-                    ble_service.current_mode = mode
-                    await ble_service.send_command(cmd)
+                    serial_service.current_mode = mode
+                    await serial_service.send_command(cmd)
                     await websocket.send_json({
                         "type": "command_response",
                         "data": {"success": True, "message": f"Mode: {mode}"},
                     })
 
             elif msg_type == "reset":
-                if ble_service.is_connected:
+                if serial_service.is_connected:
                     cmd = build_reset_command()
-                    await ble_service.send_command(cmd)
-                    ble_service.current_direction = "stop"
-                    ble_service.current_speed = 0
-                    ble_service.current_mode = "idle"
+                    await serial_service.send_command(cmd)
+                    serial_service.current_direction = "stop"
+                    serial_service.current_speed = 0
+                    serial_service.current_mode = "idle"
                     await websocket.send_json({
                         "type": "command_response",
                         "data": {"success": True, "message": "Reset complete"},
                     })
 
             elif msg_type == "connect":
-                address = msg.get("device_address")
-                result = await ble_service.connect(address)
+                port = msg.get("serial_port")
+                result = await serial_service.connect(port)
                 await websocket.send_json({
                     "type": "connection_status",
-                    "data": ble_service.get_ble_status(),
+                    "data": serial_service.get_connection_status(),
                 })
 
             elif msg_type == "disconnect":
-                await ble_service.disconnect()
+                await serial_service.disconnect()
                 await websocket.send_json({
                     "type": "connection_status",
-                    "data": ble_service.get_ble_status(),
+                    "data": serial_service.get_connection_status(),
                 })
 
             elif msg_type == "ping":
@@ -413,7 +415,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
-        ble_service.remove_listener(ws_listener)
+        serial_service.remove_listener(ws_listener)
 
 
 # ══════════════════════════════════════════════════════════════
