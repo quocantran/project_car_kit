@@ -100,7 +100,7 @@ def build_mode_command(mode: str) -> str:
     Build N=3 command to switch autonomous mode.
     mode: "line_tracking" (D1=1), "obstacle_avoidance" (D1=2)
     """
-    mode_map = {"line_tracking": 1, "obstacle_avoidance": 2}
+    mode_map = {"line_tracking": 1, "obstacle_avoidance": 2, "hand_tracking": 3}
     d1 = mode_map.get(mode, 1)
     cmd = {"N": 3, "D1": d1, "H": _next_cmd_id()}
     return json.dumps(cmd, separators=(",", ":"))
@@ -218,7 +218,7 @@ TELEMETRY_DIR_MAP: dict[int, str] = {
 # Mode code → name mapping
 TELEMETRY_MODE_MAP: dict[int, str] = {
     0: "idle", 1: "line_tracking", 2: "obstacle_avoidance",
-    3: "bluetooth", 4: "irremote", 5: "other",
+    3: "bluetooth", 4: "irremote", 5: "other", 6: "hand_tracking",
 }
 
 

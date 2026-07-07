@@ -6,6 +6,7 @@ import {
   Route,
   ShieldAlert,
   Radar,
+  ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RobotMode } from "@/types";
@@ -20,6 +21,7 @@ const modes: { id: RobotMode; label: string; icon: typeof Hand }[] = [
   { id: "line-follow", label: "Line Follow", icon: Route },
   { id: "obstacle-avoid", label: "Obstacle Avoid", icon: ShieldAlert },
   { id: "auto-patrol", label: "Auto Patrol", icon: Radar },
+  { id: "hand-tracking", label: "Hand Tracking", icon: ScanFace },
 ];
 
 export function QuickModes({ activeMode, onModeChange }: QuickModesProps) {

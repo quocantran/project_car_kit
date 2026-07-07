@@ -132,7 +132,7 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
     ws.onerror = (err) => {
       console.error("[WS] Error:", err);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMessage = useCallback((msg: { type: string; data: Record<string, unknown> }) => {

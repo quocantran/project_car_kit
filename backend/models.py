@@ -29,7 +29,7 @@ class ServoCommand(BaseModel):
 
 class ModeCommand(BaseModel):
     """Command to switch autonomous driving mode."""
-    mode: Literal["line_tracking", "obstacle_avoidance"]
+    mode: Literal["line_tracking", "obstacle_avoidance", "hand_tracking"]
 
 
 class ConnectRequest(BaseModel):

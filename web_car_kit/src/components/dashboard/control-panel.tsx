@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -10,6 +10,7 @@ import {
   Route,
   ShieldAlert,
   Radar,
+  ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -34,6 +35,7 @@ const robotModes: { id: RobotMode; label: string; icon: typeof Hand }[] = [
   { id: "line-follow", label: "Line Follow", icon: Route },
   { id: "obstacle-avoid", label: "Obstacle Avoid", icon: ShieldAlert },
   { id: "auto-patrol", label: "Auto Patrol", icon: Radar },
+  { id: "hand-tracking", label: "Hand Tracking", icon: ScanFace },
 ];
 
 export function ControlPanel({
@@ -63,6 +65,81 @@ export function ControlPanel({
     setSpeed(arrayVal);
     onSpeedChange?.(arrayVal[0]);
   };
+
+  // Use refs for callbacks to avoid re-running useEffect on every render
+  const pressRef = React.useRef(onDirectionPress);
+  const releaseRef = React.useRef(onDirectionRelease);
+
+  useEffect(() => {
+    pressRef.current = onDirectionPress;
+    releaseRef.current = onDirectionRelease;
+  }, [onDirectionPress, onDirectionRelease]);
+
+  useEffect(() => {
+    if (activeMode !== "manual") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          setActiveDirection("forward");
+          pressRef.current?.("forward");
+          break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+          setActiveDirection("back");
+          pressRef.current?.("back");
+          break;
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          setActiveDirection("left");
+          pressRef.current?.("left");
+          break;
+        case "ArrowRight":
+        case "d":
+        case "D":
+          setActiveDirection("right");
+          pressRef.current?.("right");
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+        case "ArrowDown":
+        case "s":
+        case "S":
+        case "ArrowLeft":
+        case "a":
+        case "A":
+        case "ArrowRight":
+        case "d":
+        case "D":
+          setActiveDirection(null);
+          releaseRef.current?.();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [activeMode]);
 
   return (
     <DashboardCard title="Control Panel">

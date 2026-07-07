@@ -67,6 +67,8 @@ export default function DashboardPage() {
       sendMode("line_tracking");
     } else if (mode === "obstacle-avoid") {
       sendMode("obstacle_avoidance");
+    } else if (mode === "hand-tracking") {
+      sendMode("hand_tracking");
     } else if (mode === "manual") {
       sendReset(); // Return to manual/bluetooth control
     }
