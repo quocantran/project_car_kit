@@ -458,12 +458,13 @@ class SerialService:
 
     async def _broadcast_telemetry(self):
         """Broadcast current telemetry state."""
+        actual_speed = 0 if self.current_direction == "stop" else self.current_speed
         await self._broadcast({
             "type": "telemetry",
             "data": {
                 "battery": int(self.battery_percent),
-                "speed": self.current_speed,
-                "speed_percent": int(self.current_speed / 255 * 100),
+                "speed": actual_speed,
+                "speed_percent": int(actual_speed / 255 * 100),
                 "distance": self.last_distance,
                 "is_connected": self.is_connected,
                 "current_direction": self.current_direction,
@@ -475,10 +476,11 @@ class SerialService:
 
     def get_telemetry(self) -> dict:
         """Get current telemetry snapshot."""
+        actual_speed = 0 if self.current_direction == "stop" else self.current_speed
         return {
             "battery": int(self.battery_percent),
-            "speed": self.current_speed,
-            "speed_percent": int(self.current_speed / 255 * 100),
+            "speed": actual_speed,
+            "speed_percent": int(actual_speed / 255 * 100),
             "distance": self.last_distance,
             "is_connected": self.is_connected,
             "current_direction": self.current_direction,

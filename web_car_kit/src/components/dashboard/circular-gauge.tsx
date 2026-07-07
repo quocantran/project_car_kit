@@ -49,7 +49,6 @@ export function CircularGauge({
             fill="none"
             stroke="oklch(0.94 0 0)"
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
           />
           {/* Value arc */}
           <circle
@@ -62,7 +61,7 @@ export function CircularGauge({
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={offset}
-            className="transition-all duration-1000 ease-out"
+            className="transition-[stroke-dashoffset] duration-500 ease-out"
             style={
               {
                 "--gauge-circumference": circumference,

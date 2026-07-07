@@ -21,6 +21,7 @@ import type { RobotMode } from "@/types";
 export default function DashboardPage() {
   const [activeMode, setActiveMode] = useState<RobotMode>("manual");
   const [logs, setLogs] = useState(initialLogs);
+  const [targetSpeed, setTargetSpeed] = useState(50); // Speed percentage (0-100)
 
   // Real-time WebSocket connection to backend
   const {
@@ -74,6 +75,7 @@ export default function DashboardPage() {
 
   // Map speed percentage (0-100) to PWM (0-255)
   const handleSpeedChange = (percent: number) => {
+    setTargetSpeed(percent);
     const pwm = Math.round((percent / 100) * 255);
     sendSpeed(pwm);
   };
@@ -109,10 +111,10 @@ export default function DashboardPage() {
               <ControlPanel
                 activeMode={activeMode}
                 onModeChange={handleModeChange}
-                onDirectionPress={(dir) => sendControl(dir, Math.round((telemetry.speed / 100) * 255) || 200)}
+                onDirectionPress={(dir) => sendControl(dir, Math.round((targetSpeed / 100) * 255))}
                 onDirectionRelease={() => sendControl("stop", 0)}
                 onSpeedChange={handleSpeedChange}
-                currentSpeed={telemetry.speed}
+                currentSpeed={targetSpeed}
               />
               <SystemLog logs={logs} onClear={handleClearLogs} />
             </div>
