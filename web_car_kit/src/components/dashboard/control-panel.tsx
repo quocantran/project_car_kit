@@ -10,6 +10,7 @@ import {
   Route,
   ShieldAlert,
   Radar,
+  ScanSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
@@ -34,6 +35,7 @@ const robotModes: { id: RobotMode; label: string; icon: typeof Hand }[] = [
   { id: "line-follow", label: "Line Follow", icon: Route },
   { id: "obstacle-avoid", label: "Obstacle Avoid", icon: ShieldAlert },
   { id: "auto-patrol", label: "Auto Patrol", icon: Radar },
+  { id: "hand-tracking", label: "Hand Track", icon: ScanSearch },
 ];
 
 export function ControlPanel({
@@ -67,10 +69,25 @@ export function ControlPanel({
   return (
     <DashboardCard title="Control Panel">
       <div className="space-y-6">
-        {/* D-Pad & Sliders Side-by-Side */}
+        {/* D-Pad & Sliders Side-by-Side (or Hand Tracking Status) */}
         <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 items-center">
-          {/* D-Pad (Left side) */}
-          <div className="flex justify-center shrink-0">
+          {/* Left side: D-Pad or Hand Tracking Status */}
+          {activeMode === "hand-tracking" ? (
+            /* Hand Tracking Sensor Status Panel */
+            <div className="flex justify-center shrink-0">
+              <div className="relative flex h-[150px] w-[150px] flex-col items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.04] to-primary/[0.08]">
+                <ScanSearch className="h-8 w-8 text-primary/60 animate-pulse" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/50">Tracking</span>
+                <div className="mt-1 flex items-baseline gap-0.5">
+                  <span className="text-2xl font-bold text-primary tabular-nums">20</span>
+                  <span className="text-[10px] text-primary/60">cm</span>
+                </div>
+                <span className="text-[9px] text-muted-foreground">Target Distance</span>
+              </div>
+            </div>
+          ) : (
+            /* D-Pad (Original — unchanged) */
+            <div className="flex justify-center shrink-0">
             <div className="relative grid h-[150px] w-[150px] grid-cols-3 grid-rows-3 gap-1.5">
               {/* Forward */}
               <div className="col-start-2 row-start-1 flex items-end justify-center">
@@ -156,6 +173,7 @@ export function ControlPanel({
               </div>
             </div>
           </div>
+          )}
 
           {/* Sliders (Right side) */}
           <div className="space-y-5 w-full">
@@ -208,7 +226,7 @@ export function ControlPanel({
         </div>
 
         {/* Robot Modes Horizontal Tabs (Bottom) */}
-        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-border/50">
+        <div className="grid grid-cols-5 gap-2 pt-2 border-t border-border/50">
           {robotModes.map((mode) => {
             const isActive = activeMode === mode.id;
             return (

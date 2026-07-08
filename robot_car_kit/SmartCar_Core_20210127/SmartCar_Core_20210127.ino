@@ -60,6 +60,22 @@ const int ObstacleDetection = 35;
 
 unsigned int carSpeed_rocker = 250;
 
+/*══════════════════════════════════════════════════════════════
+ * HAND TRACKING — Configurable Constants (dễ thay đổi)
+ * Thay đổi các giá trị bên dưới để điều chỉnh hành vi theo dõi tay
+ *══════════════════════════════════════════════════════════════*/
+#define HT_TARGET_DIST      20    // Khoảng cách mục tiêu (cm) — xe giữ khoảng cách này với tay
+#define HT_DEADZONE         4     // Vùng chết ±cm — trong vùng này xe đứng yên
+#define HT_HYSTERESIS       3     // cm thêm khi xe đã dừng — tránh dao động (deadzone mở rộng = ±7cm)
+#define HT_SAFE_MIN         10    // Khoảng cách tối thiểu an toàn (cm) — gần hơn sẽ lùi tốc độ max
+#define HT_MAX_RANGE        50    // Phạm vi phát hiện tối đa (cm) — xa hơn sẽ dừng
+#define HT_SPEED_MIN        80    // Tốc độ PWM tối thiểu (0-255) — thấp hơn = ít quá đà
+#define HT_SPEED_MAX        180   // Tốc độ PWM tối đa (0-255)
+#define HT_EMA_ALPHA        0.45  // Hệ số lọc EMA (0.0-1.0) — tăng lên để phản hồi nhanh hơn, giảm trễ
+#define HT_RAMP_STEP        25    // Bước tăng/giảm tốc tối đa mỗi chu kỳ — tăng lên để tăng tốc nhanh hơn
+#define HT_UPDATE_INTERVAL  50    // ms giữa mỗi lần đọc sensor — giảm xuống để cập nhật nhanh hơn
+#define HT_STABLE_COUNT     3     // Số lần đọc liên tục trước khi đổi hướng — chống dao động
+
 // Throttle getDistance() to avoid blocking serial reads
 unsigned long lastDistanceMillis = 0;
 #define DISTANCE_INTERVAL 500  // Only read distance every 500ms
@@ -112,6 +128,7 @@ enum FUNCTIONMODE {
   CMD_CarControl,        /*Car Control Mode*/
   CMD_CarControlxxx,     /*Car Control Mode*/
   CMD_ClearAllFunctions, /*Clear All Functions Mode*/
+  HandTracking,          /*Hand Tracking Mode (Phase 1)*/
 } func_mode = IDLE;      /*Functional mode*/
 
 enum MOTIONMODE {
@@ -502,6 +519,178 @@ void obstacles_avoidance_mode(void) {
   }
 }
 
+/*
+  Hand Tracking Mode — Phase 1 (v3: fix deadlock)
+  Xe tự động tiến/lùi để duy trì khoảng cách mục tiêu với bàn tay
+  
+  Cơ chế chống dao động:
+  1. Hysteresis hướng: khi xe vừa dừng, mở rộng deadzone CHỈ về phía hướng cũ
+  2. Stable count: CHỈ áp dụng khi ĐẢO HƯỚNG (forward↔back), KHÔNG block khởi động
+  3. EMA mượt (alpha thấp) + ramp nhỏ: giảm quá đà do quán tính
+*/
+void hand_tracking_mode(void) {
+  static float ema_distance = 0;
+  static int ht_current_speed = 0;
+  static unsigned long ht_last_update = 0;
+  static boolean ht_first_entry = true;
+  static int ht_active_direction = 0;   // Hướng đang thực thi: 0=stop, 1=forward, 2=back
+  static uint8_t ht_change_counter = 0; // Đếm số lần đọc liên tục khi muốn ĐẢO hướng
+  static int ht_last_moving_dir = 0;    // Hướng chạy cuối cùng trước khi dừng
+
+  if (func_mode != HandTracking) {
+    ht_first_entry = true;
+    return;
+  }
+
+  // First entry: initialize servo to front-facing and prime EMA filter
+  if (ht_first_entry) {
+    ServoControl(90);
+    ema_distance = (float)getDistance();
+    ht_current_speed = 0;
+    ht_active_direction = 0;
+    ht_change_counter = 0;
+    ht_last_moving_dir = 0;
+    stop();
+    ht_first_entry = false;
+  }
+
+  // Rate limiting
+  if (millis() - ht_last_update < HT_UPDATE_INTERVAL) return;
+  ht_last_update = millis();
+
+  // Read raw distance and apply EMA filter
+  int raw_dist = getDistance();
+  
+  int desired_direction = 0;
+  int target_speed = 0;
+  
+  // ── Kiểm tra mất vật cản đột ngột (sensor trả về 0 hoặc vượt quá phạm vi) ──
+  // Cảm biến trả về 0 khi không nhận được echo (ví dụ: rút tay ra quá nhanh hoặc xa)
+  if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
+    desired_direction = 0;
+    target_speed = 0;
+    ema_distance = HT_TARGET_DIST; // Reset bộ lọc về 20 để dừng xe ngay, tránh bị kéo lùi
+  } else {
+    ema_distance = HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
+  }
+  int dist = (int)ema_distance;
+
+  // ── Bù trễ động (Dynamic Lag Compensation) & Hysteresis ──
+  int lower_bound = HT_TARGET_DIST - HT_DEADZONE;  // 16cm
+  int upper_bound = HT_TARGET_DIST + HT_DEADZONE;  // 24cm
+
+  // Bù trễ khi xe đang di chuyển: phanh sớm hơn để trừ hao trôi bánh và trễ cảm biến
+  if (ht_active_direction == 2) {
+    // Đang lùi: dừng sớm hơn (nâng ngưỡng dưới lên 18cm)
+    lower_bound += 2;
+  } else if (ht_active_direction == 1) {
+    // Đang tiến: dừng sớm hơn (hạ ngưỡng trên xuống 22cm)
+    upper_bound -= 2;
+  }
+
+  // Hysteresis khi xe đang dừng: chỉ mở rộng deadzone về phía hướng xe vừa chạy
+  if (ht_active_direction == 0 && ht_last_moving_dir == 2) {
+    lower_bound -= HT_HYSTERESIS;  // 13cm
+  } else if (ht_active_direction == 0 && ht_last_moving_dir == 1) {
+    upper_bound += HT_HYSTERESIS;  // 27cm
+  }
+
+  // ── Tính hướng mong muốn ──
+  desired_direction = 0;
+  target_speed = 0;
+
+  if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
+    // Đã xử lý ở trên, giữ dừng
+    desired_direction = 0;
+    target_speed = 0;
+  } else if (dist >= lower_bound && dist <= upper_bound) {
+    // Trong deadzone — giữ nguyên
+    desired_direction = 0;
+    target_speed = 0;
+  } else if (dist < HT_SAFE_MIN) {
+    // Quá gần — lùi tốc độ max (nhưng lùi nhẹ hơn tiến)
+    desired_direction = 2;
+    target_speed = 140; // Giới hạn tốc độ lùi tối đa an toàn để giảm trượt đà
+  } else if (dist < lower_bound) {
+    // Tay tiến lại gần — lùi tỷ lệ
+    desired_direction = 2;
+    int error = lower_bound - dist;
+    int range = lower_bound - HT_SAFE_MIN;
+    if (range > 0) {
+      target_speed = map(error, 0, range, HT_SPEED_MIN, 140);
+    } else {
+      target_speed = 140;
+    }
+  } else {
+    // Tay rút xa — tiến theo tỷ lệ
+    desired_direction = 1;
+    int error = dist - upper_bound;
+    int range = HT_MAX_RANGE - upper_bound;
+    if (range > 0) {
+      target_speed = map(error, 0, range, HT_SPEED_MIN, HT_SPEED_MAX);
+    } else {
+      target_speed = HT_SPEED_MIN;
+    }
+  }
+
+  target_speed = constrain(target_speed, 0, HT_SPEED_MAX);
+
+  // ── Direction logic ──
+  if (desired_direction == ht_active_direction) {
+    // Cùng hướng — chạy bình thường
+    ht_change_counter = 0;
+  } else if (desired_direction == 0) {
+    // Muốn dừng — cho dừng ngay
+    if (ht_active_direction != 0) {
+      ht_last_moving_dir = ht_active_direction;  // Nhớ hướng cuối cho hysteresis
+    }
+    ht_active_direction = 0;
+    ht_change_counter = 0;
+  } else if (ht_active_direction == 0) {
+    // KHỞI ĐỘNG từ dừng → cho phép ngay, KHÔNG cần chờ stable count
+    ht_active_direction = desired_direction;
+    ht_change_counter = 0;
+    ht_last_moving_dir = 0;  // Xóa hysteresis sau khi khởi động
+  } else {
+    // ĐẢO HƯỚNG (forward↔back) — phải chờ stable count
+    ht_change_counter++;
+    if (ht_change_counter >= HT_STABLE_COUNT) {
+      ht_active_direction = desired_direction;
+      ht_change_counter = 0;
+      ht_last_moving_dir = 0;
+    } else {
+      // Chưa đủ — buộc dừng trong khi chờ
+      target_speed = 0;
+    }
+  }
+
+  // ── Acceleration/Deceleration ramping ──
+  if (target_speed > ht_current_speed) {
+    // Tăng tốc mượt từ từ
+    ht_current_speed = min(ht_current_speed + HT_RAMP_STEP, target_speed);
+  } else {
+    // Giảm tốc nhanh hơn (hoặc dừng ngay lập tức nếu target_speed = 0) để tránh trôi xe quá đà
+    if (target_speed == 0) {
+      ht_current_speed = 0;
+    } else {
+      ht_current_speed = max(ht_current_speed - (HT_RAMP_STEP * 2), target_speed);
+    }
+  }
+
+  // ── Execute movement ──
+  if (ht_active_direction == 0) {
+    stop();
+    mov_mode = STOP;
+    ht_current_speed = 0;  // Chỉ reset khi THỰC SỰ muốn dừng
+  } else if (ht_active_direction == 1) {
+    forward(false, ht_current_speed);
+    mov_mode = FORWARD;
+  } else if (ht_active_direction == 2) {
+    back(false, ht_current_speed);
+    mov_mode = BACK;
+  }
+}
+
 /*****************************************************Begin@CMD**************************************************************************************/
 
 /*
@@ -781,6 +970,7 @@ void CMD_Telemetry_Plus(void) {
     case ObstaclesAvoidance: mode = 2; break;
     case Bluetooth:          mode = 3; break;
     case IRremote:           mode = 4; break;
+    case HandTracking:       mode = 6; break;
     default:                 mode = 5; break;
   }
   // Send telemetry as JSON
@@ -797,7 +987,7 @@ void CMD_Telemetry_Plus(void) {
 // #include "hardwareSerial.h"
 void getBTData_Plus(void) {
   static String SerialPortData = "";
-  uint8_t c = "";
+  uint8_t c = 0;
   if (Serial.available() > 0) {
     while ((c != '}') &&
            Serial.available() >
@@ -893,6 +1083,10 @@ void getBTData_Plus(void) {
         } else if (2 == doc["D1"]) // Obstacles Avoidance Mode
         {
           func_mode = ObstaclesAvoidance;
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } else if (3 == doc["D1"]) // Hand Tracking Mode
+        {
+          func_mode = HandTracking;
           Serial.print('{' + CommandSerialNumber + "_ok}");
         }
       } break;
@@ -1010,6 +1204,7 @@ void loop(void) {
   irremote_mode();            // Infrared NEC remote control mode
   line_teacking_mode();       // Line Teacking Mode
   obstacles_avoidance_mode(); // Obstacles Avoidance Mode
+  hand_tracking_mode();       // Hand Tracking Mode (Phase 1)
 
   // Throttle distance reads to avoid blocking serial (pulseIn is slow)
   if (millis() - lastDistanceMillis >= DISTANCE_INTERVAL) {
