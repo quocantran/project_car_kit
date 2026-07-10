@@ -1,2 +1,3 @@
-./__pycache__
-scan_ble.json
+/venv/
+**/__pycache__/
+*.pyc

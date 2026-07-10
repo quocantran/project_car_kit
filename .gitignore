@@ -1,1 +1,4 @@
 *.code-workspace
+backend/venv/
+**/__pycache__/
+*.pyc

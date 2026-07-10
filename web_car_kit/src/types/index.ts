@@ -4,7 +4,7 @@
 
 export type ConnectionStatus = "connected" | "disconnected" | "connecting";
 
-export type RobotMode = "manual" | "line-follow" | "obstacle-avoid" | "auto-patrol";
+export type RobotMode = "manual" | "line-follow" | "obstacle-avoid" | "auto-patrol" | "hand-tracking";
 
 export interface RobotStatus {
   isOnline: boolean;
