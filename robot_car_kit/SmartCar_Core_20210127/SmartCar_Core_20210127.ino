@@ -71,25 +71,34 @@ unsigned int carSpeed_rocker = 250;
   3 // cm thêm khi xe đã dừng — tránh dao động (deadzone mở rộng = ±7cm)
 #define HT_SAFE_MIN                                                            \
   10 // Khoảng cách tối thiểu an toàn (cm) — gần hơn sẽ lùi tốc độ max
-#define HT_MAX_RANGE 50  // Phạm vi phát hiện tối đa (cm) — xa hơn sẽ dừng
-#define HT_SPEED_MIN 80  // Tốc độ PWM tối thiểu (0-255) — thấp hơn = ít quá đà
-#define HT_SPEED_MAX 180 // Tốc độ PWM tối đa (0-255)
+#define HT_MAX_RANGE 50 // Phạm vi phát hiện tối đa (cm) — xa hơn sẽ dừng
+#define HT_SPEED_MIN 80 // Tốc độ PWM tối thiểu (0-255) — thấp hơn = ít quá đà
+#define HT_SPEED_MAX                                                           \
+  140 // Tốc độ PWM tối đa (0-255) (giảm để tránh sụt áp nguồn)
 #define HT_EMA_ALPHA                                                           \
   0.45 // Hệ số lọc EMA (0.0-1.0) — tăng lên để phản hồi nhanh hơn, giảm trễ
 #define HT_RAMP_STEP                                                           \
-  25 // Bước tăng/giảm tốc tối đa mỗi chu kỳ — tăng lên để tăng tốc nhanh hơn
+  15 // Bước tăng/giảm tốc tối đa mỗi chu kỳ (giảm để khởi động mượt hơn, tránh
+     // giật dòng)
 #define HT_UPDATE_INTERVAL                                                     \
   50 // ms giữa mỗi lần đọc sensor — giảm xuống để cập nhật nhanh hơn
 #define HT_STABLE_COUNT                                                        \
   3 // Số lần đọc liên tục trước khi đổi hướng — chống dao động
 
 // ── Hand Tracking Phase 2: Search & Align ──
-#define HT_SERVO_SETTLE 500      // ms chờ servo ổn định mỗi lần quay
-#define HT_LOST_COUNT 10         // Số lần đọc liên tục mất tay trước khi SEARCH (10*50ms=500ms)
-#define HT_ALIGN_SPEED 110       // PWM quay thân xe (giảm tránh overshoot)
-#define HT_ALIGN_CHECK_INT 100   // ms giữa mỗi lần kiểm tra khi ALIGN
-#define HT_ALIGN_TIMEOUT 3000    // ms tối đa trong ALIGN trước khi → SEARCH
-#define HT_SCAN_COUNT 7          // Số góc scan zig-zag
+#define HT_SERVO_SETTLE 200 // ms chờ servo ổn định mỗi lần quay
+#define HT_LOST_COUNT                                                          \
+  10 // Số lần đọc liên tục mất tay trước khi SEARCH (10*50ms=500ms)
+#define HT_ALIGN_SPEED                                                         \
+  140 // PWM quay thân xe (đủ lực để thắng ma sát bánh cao su, giảm sụt nguồn)
+#define HT_ALIGN_CHECK_INT 100 // ms giữa mỗi lần kiểm tra khi ALIGN
+#define HT_ALIGN_TIMEOUT 3000  // ms tối đa trong ALIGN trước khi → SEARCH
+#define HT_SCAN_COUNT 7        // Số góc scan zig-zag
+
+// Divisor for ultrasonic sensor calibration.
+// Increase it if the measured distance is larger than reality; decrease if
+// smaller.
+#define ULTRASONIC_DIVISOR 46
 
 // Throttle getDistance() to avoid blocking serial reads
 unsigned long lastDistanceMillis = 0;
@@ -181,8 +190,9 @@ unsigned int getDistance(void) { // Getting distance
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
-  // Use 30ms timeout instead of default 1s to avoid blocking serial reads
-  tempda_x = ((unsigned int)pulseIn(ECHO_PIN, HIGH, 30000) / 58);
+  // Use 4ms timeout instead of default 1s to avoid blocking serial reads and
+  // reject motor noise pulses
+  tempda_x = (unsigned int)(pulseIn(ECHO_PIN, HIGH, 4000) / ULTRASONIC_DIVISOR);
   if (tempda_x > 150) {
     tempda_x = 150;
   }
@@ -320,8 +330,6 @@ void servoWriteNonBlocking(uint8_t angle) {
   servo.attach(PIN_Servo);
   servo.write(angle);
 }
-
-
 
 /*
   Infrared Communication Data Acquisition
@@ -561,7 +569,8 @@ void obstacles_avoidance_mode(void) {
   - Servo settle 500ms cố định (không quá nhanh)
   - Lost counter: cần 10 lần đọc liên tục mất tay mới chuyển LOST_WAIT
   - LOST_WAIT có rate limiting tránh block serial
-  - ALIGN đơn giản: tìm tay → servo về 90° → xe quay → tay xuất hiện ở 90° → done
+  - ALIGN đơn giản: tìm tay → servo về 90° → xe quay → tay xuất hiện ở 90° →
+  done
 */
 void hand_tracking_mode(void) {
   // ── Phase 1 variables ──
@@ -586,10 +595,14 @@ void hand_tracking_mode(void) {
   static unsigned long ht_scan_timer = 0;
   // Align
   static unsigned long ht_align_start = 0;
+  static uint8_t lost_debounce_counter = 0;
 
   // ── Exit mode ──
   if (func_mode != HandTracking) {
-    if (!ht_first_entry) { stop(); servo.detach(); }
+    if (!ht_first_entry) {
+      stop();
+      servo.detach();
+    }
     ht_first_entry = true;
     ht_state = HT_TRACK_DISTANCE;
     return;
@@ -608,6 +621,7 @@ void hand_tracking_mode(void) {
     ht_state = HT_TRACK_DISTANCE;
     ht_last_hand_angle = 90;
     ht_lost_count = 0;
+    lost_debounce_counter = 0;
     stop();
     ht_first_entry = false;
   }
@@ -619,7 +633,8 @@ void hand_tracking_mode(void) {
 
   // ── STATE: TRACK_DISTANCE ──
   case HT_TRACK_DISTANCE: {
-    if (millis() - ht_last_update < HT_UPDATE_INTERVAL) return;
+    if (millis() - ht_last_update < HT_UPDATE_INTERVAL)
+      return;
     ht_last_update = millis();
 
     int raw_dist = getDistance();
@@ -629,53 +644,73 @@ void hand_tracking_mode(void) {
 
     // Mất tay: đếm liên tục, cần HT_LOST_COUNT lần mới chuyển state
     if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
-      ht_lost_count++;
-      ema_distance = HT_TARGET_DIST; // Reset EMA tránh bị kéo
-      desired_direction = 0;
-      target_speed = 0;
+      lost_debounce_counter++;
+      if (lost_debounce_counter >=
+          3) { // Chỉ coi là mất tay thật sự nếu đọc sai 3 lần liên tiếp (150ms)
+        ht_lost_count++;
+        ema_distance = HT_TARGET_DIST; // Reset EMA tránh bị kéo
+        desired_direction = 0;
+        target_speed = 0;
 
-      if (ht_lost_count >= HT_LOST_COUNT) {
-        stop();
-        ht_current_speed = 0;
-        ht_active_direction = 0;
-        mov_mode = STOP;
-        ht_lost_count = 0;
-        ht_lost_start = millis();
-        ht_state = HT_LOST_WAIT;
-        return;
+        if (ht_lost_count >= HT_LOST_COUNT) {
+          stop();
+          ht_current_speed = 0;
+          ht_active_direction = 0;
+          mov_mode = STOP;
+          ht_lost_count = 0;
+          ht_lost_start = millis();
+          ht_state = HT_LOST_WAIT;
+          return;
+        }
+      } else {
+        // Giữ nguyên khoảng cách cũ để lọc nhiễu tức thời từ động cơ khi đang
+        // chạy
+        raw_dist = (int)ema_distance;
       }
     } else {
+      lost_debounce_counter = 0;
       ht_lost_count = 0; // Reset counter khi tay còn
-      ema_distance = HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
+      ema_distance =
+          HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
     }
     int dist = (int)ema_distance;
 
     // Bù trễ động & Hysteresis
     int lower_bound = HT_TARGET_DIST - HT_DEADZONE;
     int upper_bound = HT_TARGET_DIST + HT_DEADZONE;
-    if (ht_active_direction == 2) lower_bound += 2;
-    else if (ht_active_direction == 1) upper_bound -= 2;
-    if (ht_active_direction == 0 && ht_last_moving_dir == 2) lower_bound -= HT_HYSTERESIS;
-    else if (ht_active_direction == 0 && ht_last_moving_dir == 1) upper_bound += HT_HYSTERESIS;
+    if (ht_active_direction == 2)
+      lower_bound += 2;
+    else if (ht_active_direction == 1)
+      upper_bound -= 2;
+    if (ht_active_direction == 0 && ht_last_moving_dir == 2)
+      lower_bound -= HT_HYSTERESIS;
+    else if (ht_active_direction == 0 && ht_last_moving_dir == 1)
+      upper_bound += HT_HYSTERESIS;
 
     // Tính hướng
     if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
       // Đang trong giai đoạn đếm lost — dừng xe
-      desired_direction = 0; target_speed = 0;
+      desired_direction = 0;
+      target_speed = 0;
     } else if (dist >= lower_bound && dist <= upper_bound) {
-      desired_direction = 0; target_speed = 0;
+      desired_direction = 0;
+      target_speed = 0;
     } else if (dist < HT_SAFE_MIN) {
-      desired_direction = 2; target_speed = 140;
+      desired_direction = 2;
+      target_speed = 140;
     } else if (dist < lower_bound) {
       desired_direction = 2;
       int error = lower_bound - dist;
       int range = lower_bound - HT_SAFE_MIN;
-      target_speed = (range > 0) ? map(error, 0, range, HT_SPEED_MIN, 140) : 140;
+      target_speed =
+          (range > 0) ? map(error, 0, range, HT_SPEED_MIN, 140) : 140;
     } else {
       desired_direction = 1;
       int error = dist - upper_bound;
       int range = HT_MAX_RANGE - upper_bound;
-      target_speed = (range > 0) ? map(error, 0, range, HT_SPEED_MIN, HT_SPEED_MAX) : HT_SPEED_MIN;
+      target_speed = (range > 0)
+                         ? map(error, 0, range, HT_SPEED_MIN, HT_SPEED_MAX)
+                         : HT_SPEED_MIN;
     }
     target_speed = constrain(target_speed, 0, HT_SPEED_MAX);
 
@@ -683,7 +718,8 @@ void hand_tracking_mode(void) {
     if (desired_direction == ht_active_direction) {
       ht_change_counter = 0;
     } else if (desired_direction == 0) {
-      if (ht_active_direction != 0) ht_last_moving_dir = ht_active_direction;
+      if (ht_active_direction != 0)
+        ht_last_moving_dir = ht_active_direction;
       ht_active_direction = 0;
       ht_change_counter = 0;
     } else if (ht_active_direction == 0) {
@@ -707,15 +743,20 @@ void hand_tracking_mode(void) {
     else if (target_speed == 0)
       ht_current_speed = 0;
     else
-      ht_current_speed = max(ht_current_speed - (HT_RAMP_STEP * 2), target_speed);
+      ht_current_speed =
+          max(ht_current_speed - (HT_RAMP_STEP * 2), target_speed);
 
     // Execute
     if (ht_active_direction == 0) {
-      stop(); mov_mode = STOP; ht_current_speed = 0;
+      stop();
+      mov_mode = STOP;
+      ht_current_speed = 0;
     } else if (ht_active_direction == 1) {
-      forward(false, ht_current_speed); mov_mode = FORWARD;
+      forward(false, ht_current_speed);
+      mov_mode = FORWARD;
     } else {
-      back(false, ht_current_speed); mov_mode = BACK;
+      back(false, ht_current_speed);
+      mov_mode = BACK;
     }
     break;
   }
@@ -725,7 +766,8 @@ void hand_tracking_mode(void) {
     stop();
     mov_mode = STOP;
     // Rate limit — dùng HT_UPDATE_INTERVAL để không spam getDistance()
-    if (millis() - ht_last_update < HT_UPDATE_INTERVAL) return;
+    if (millis() - ht_last_update < HT_UPDATE_INTERVAL)
+      return;
     ht_last_update = millis();
 
     int check = getDistance();
@@ -739,7 +781,8 @@ void hand_tracking_mode(void) {
     }
     // Chờ thêm 300ms sau lost counter rồi mới SEARCH
     if (millis() - ht_lost_start >= 300) {
-      static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
+      static const int8_t offsets[HT_SCAN_COUNT] = {0,  -30, 30, -45,
+                                                    45, -60, 60};
       for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
         int a = (int)ht_last_hand_angle + offsets[i];
         scan_angles[i] = constrain(a, 5, 175);
@@ -780,14 +823,16 @@ void hand_tracking_mode(void) {
       break;
     }
 
-    case 3: { // EVALUATE — chọn góc có distance gần HT_TARGET_DIST nhất
+    case 3: { // EVALUATE — chọn góc có vật cản gần nhất
       uint8_t best_idx = 255;
-      int best_diff = 999;
+      uint8_t min_dist = 255;
       for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
         uint8_t d = scan_distances[i];
         if (d > 0 && d < HT_MAX_RANGE) {
-          int diff = abs((int)d - HT_TARGET_DIST);
-          if (diff < best_diff) { best_diff = diff; best_idx = i; }
+          if (d < min_dist) {
+            min_dist = d;
+            best_idx = i;
+          }
         }
       }
       if (best_idx != 255) {
@@ -829,6 +874,9 @@ void hand_tracking_mode(void) {
           servoWriteNonBlocking(90);
           delays(500); // Chờ servo về chính giữa xong
 
+          ht_last_hand_angle =
+              90; // Reset góc về 90 độ vì thân xe đã quay theo tay
+
           // Chuyển sang ALIGN_HEADING để kiểm tra lần cuối
           ht_align_start = millis();
           ht_state = HT_ALIGN_HEADING;
@@ -855,10 +903,12 @@ void hand_tracking_mode(void) {
   // ── STATE: ALIGN_HEADING ──
   // Đọc khoảng cách ở servo=90° xem tay đã ở trước mặt chưa
   case HT_ALIGN_HEADING: {
+    static uint8_t align_retry_count = 0;
     int d = getDistance();
     CMD_Distance = d;
 
     if (d > 0 && d <= HT_MAX_RANGE) {
+      align_retry_count = 0;
       // Tay đã ở chính giữa → căn xong!
       ema_distance = (float)d;
       ht_current_speed = 0;
@@ -869,24 +919,28 @@ void hand_tracking_mode(void) {
       ht_last_hand_angle = 90;
       ht_state = HT_TRACK_DISTANCE;
     } else {
-      // Không thấy → quay lại SEARCH_HAND
-      static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
-      for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
-        int a = (int)ht_last_hand_angle + offsets[i];
-        scan_angles[i] = constrain(a, 5, 175);
+      align_retry_count++;
+      if (align_retry_count >= 3) {
+        align_retry_count = 0;
+        // Không thấy sau 3 lần → quay lại SEARCH_HAND
+        static const int8_t offsets[HT_SCAN_COUNT] = {0,  -30, 30, -45,
+                                                      45, -60, 60};
+        for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
+          int a = (int)ht_last_hand_angle + offsets[i];
+          scan_angles[i] = constrain(a, 5, 175);
+        }
+        ht_scan_index = 0;
+        ht_scan_phase = 0;
+        ht_state = HT_SEARCH_HAND;
+      } else {
+        delays(50); // Đợi 50ms trước khi thử lại
       }
-      ht_scan_index = 0;
-      ht_scan_phase = 0;
-      ht_state = HT_SEARCH_HAND;
     }
     break;
   }
 
   } // end switch
 }
-
-
-
 
 /*****************************************************Begin@CMD**************************************************************************************/
 
@@ -1144,7 +1198,7 @@ void getDistance_xx(void) {
   Response: {"d":distance,"s":speed,"dir":direction,"m":mode}
 */
 void CMD_Telemetry_Plus(void) {
-  uint16_t dist = getDistance();
+  uint16_t dist = CMD_Distance;
   // Get current direction as number
   uint8_t dir = 0; // 0=stop
   switch (mov_mode) {
@@ -1235,8 +1289,9 @@ void getBTData_Plus(void) {
 
     if (c == '}') {
       StaticJsonDocument<150> doc;
-      DeserializationError error = deserializeJson(doc, SerialPortData);
-      
+      DeserializationError error =
+          deserializeJson(doc, (const char *)SerialPortData);
+
       // Reset buffer immediately
       rx_index = 0;
       SerialPortData[0] = '\0';
