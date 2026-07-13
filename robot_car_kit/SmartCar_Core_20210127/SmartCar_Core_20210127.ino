@@ -247,7 +247,9 @@ void left(bool debug, int16_t in_carSpeed) {
   Control motor：The car turns right and moves forward
 */
 void right(bool debug, int16_t in_carSpeed) {
-  analogWrite(ENA, in_carSpeed);
+  int16_t speedA = in_carSpeed + 50; // Tăng công suất động cơ trái (đi lùi) để bù ma sát
+  if (speedA > 255) speedA = 255;
+  analogWrite(ENA, speedA);
   analogWrite(ENB, in_carSpeed);
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
