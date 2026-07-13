@@ -98,7 +98,7 @@ unsigned int carSpeed_rocker = 250;
 // Divisor for ultrasonic sensor calibration.
 // Increase it if the measured distance is larger than reality; decrease if
 // smaller.
-#define ULTRASONIC_DIVISOR 46
+#define ULTRASONIC_DIVISOR 48
 
 // Throttle getDistance() to avoid blocking serial reads
 unsigned long lastDistanceMillis = 0;
@@ -181,10 +181,9 @@ void delays(unsigned long t) {
     delay(1);
   }
 }
-// Safe delay — does NOT process serial commands (prevents mode hijack during hand tracking)
-void safe_delay(unsigned long t) {
-  delay(t);
-}
+// Safe delay — does NOT process serial commands (prevents mode hijack during
+// hand tracking)
+void safe_delay(unsigned long t) { delay(t); }
 /*ULTRASONIC*/
 unsigned int getDistance(void) { // Getting distance
   static unsigned int tempda = 0;
@@ -194,7 +193,7 @@ unsigned int getDistance(void) { // Getting distance
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
-  
+
   // Timeout 25000 microseconds (~4.2 mét). Nếu quá tầm đo, pulseIn trả về 0.
   unsigned long duration = pulseIn(ECHO_PIN, HIGH, 25000);
   if (duration == 0) {
@@ -252,8 +251,10 @@ void left(bool debug, int16_t in_carSpeed) {
   Control motor：The car turns right and moves forward
 */
 void right(bool debug, int16_t in_carSpeed) {
-  int16_t speedA = in_carSpeed + 50; // Tăng công suất động cơ trái (đi lùi) để bù ma sát
-  if (speedA > 255) speedA = 255;
+  int16_t speedA =
+      in_carSpeed + 50; // Tăng công suất động cơ trái (đi lùi) để bù ma sát
+  if (speedA > 255)
+    speedA = 255;
   analogWrite(ENA, speedA);
   analogWrite(ENB, in_carSpeed);
   digitalWrite(IN1, LOW);
@@ -1289,7 +1290,8 @@ void getBTData_Plus(void) {
   while (Serial.available() > 0) {
     char c = Serial.read();
 
-    // Chỉ bắt đầu buffering khi gặp '{', bỏ qua tất cả ký tự rác (\n, khoảng trắng, v.v.)
+    // Chỉ bắt đầu buffering khi gặp '{', bỏ qua tất cả ký tự rác (\n, khoảng
+    // trắng, v.v.)
     if (!in_frame) {
       if (c == '{') {
         in_frame = true;
@@ -1317,7 +1319,8 @@ void getBTData_Plus(void) {
       // Frame hoàn chỉnh — parse JSON
       in_frame = false;
       StaticJsonDocument<150> doc;
-      DeserializationError error = deserializeJson(doc, (const char *)SerialPortData);
+      DeserializationError error =
+          deserializeJson(doc, (const char *)SerialPortData);
 
       // Reset buffer
       rx_index = 0;
@@ -1342,29 +1345,53 @@ void getBTData_Plus(void) {
         case 2: {
           Serial_mode = Serial_rocker;
           int SpeedRocker = doc["D2"];
-          if (SpeedRocker != 0) { carSpeed_rocker = SpeedRocker; }
+          if (SpeedRocker != 0) {
+            carSpeed_rocker = SpeedRocker;
+          }
           int d1 = doc["D1"];
           if (d1 >= 1 && d1 <= 9) {
             func_mode = Bluetooth;
             switch (d1) {
-              case 1: mov_mode = LEFT; break;
-              case 2: mov_mode = RIGHT; break;
-              case 3: mov_mode = FORWARD; break;
-              case 4: mov_mode = BACK; break;
-              case 5: mov_mode = STOP; break;
-              case 6: mov_mode = LEFT_FORWARD; break;
-              case 7: mov_mode = LEFT_BACK; break;
-              case 8: mov_mode = RIGHT_FORWARD; break;
-              case 9: mov_mode = RIGHT_BACK; break;
+            case 1:
+              mov_mode = LEFT;
+              break;
+            case 2:
+              mov_mode = RIGHT;
+              break;
+            case 3:
+              mov_mode = FORWARD;
+              break;
+            case 4:
+              mov_mode = BACK;
+              break;
+            case 5:
+              mov_mode = STOP;
+              break;
+            case 6:
+              mov_mode = LEFT_FORWARD;
+              break;
+            case 7:
+              mov_mode = LEFT_BACK;
+              break;
+            case 8:
+              mov_mode = RIGHT_FORWARD;
+              break;
+            case 9:
+              mov_mode = RIGHT_BACK;
+              break;
             }
           }
         } break;
         case 3: {
           Serial_mode = Serial_rocker;
           int d1 = doc["D1"];
-          if (d1 == 1) { func_mode = LineTeacking; }
-          else if (d1 == 2) { func_mode = ObstaclesAvoidance; }
-          else if (d1 == 3) { func_mode = HandTracking; }
+          if (d1 == 1) {
+            func_mode = LineTeacking;
+          } else if (d1 == 2) {
+            func_mode = ObstaclesAvoidance;
+          } else if (d1 == 3) {
+            func_mode = HandTracking;
+          }
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
         case 4: {
@@ -1402,7 +1429,8 @@ void getBTData_Plus(void) {
         case 100: {
           CMD_Telemetry_Plus();
         } break;
-        default: break;
+        default:
+          break;
         }
       }
     }
