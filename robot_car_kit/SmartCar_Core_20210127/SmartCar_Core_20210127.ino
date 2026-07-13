@@ -181,6 +181,10 @@ void delays(unsigned long t) {
     delay(1);
   }
 }
+// Safe delay — does NOT process serial commands (prevents mode hijack during hand tracking)
+void safe_delay(unsigned long t) {
+  delay(t);
+}
 /*ULTRASONIC*/
 unsigned int getDistance(void) { // Getting distance
   static unsigned int tempda = 0;
@@ -842,7 +846,7 @@ void hand_tracking_mode(void) {
         // Tay ngay trước mặt (85°-95°) → TRACK luôn
         if (found_angle >= 85 && found_angle <= 95) {
           servoWriteNonBlocking(90);
-          delays(500);
+          safe_delay(500);
           int d = getDistance();
           CMD_Distance = d;
           ema_distance = (float)d;
@@ -866,13 +870,13 @@ void hand_tracking_mode(void) {
           }
 
           // Xoay thân xe trong turn_duration
-          delays(turn_duration);
+          safe_delay(turn_duration);
           stop();
           mov_mode = STOP;
 
           // Sau xoay servo lại về chính giữa (90 độ)
           servoWriteNonBlocking(90);
-          delays(500); // Chờ servo về chính giữa xong
+          safe_delay(500); // Chờ servo về chính giữa xong
 
           ht_last_hand_angle =
               90; // Reset góc về 90 độ vì thân xe đã quay theo tay
@@ -1272,30 +1276,45 @@ void CMD_Telemetry_Plus(void) {
 // #include "hardwareSerial.h"
 void getBTData_Plus(void) {
   static char SerialPortData[128];
-  static int rx_index = 0;
-  bool parsed = false;
+  static uint8_t rx_index = 0;
+  static bool in_frame = false; // true khi đã nhận được '{'
 
   while (Serial.available() > 0) {
     char c = Serial.read();
 
+    // Chỉ bắt đầu buffering khi gặp '{', bỏ qua tất cả ký tự rác (\n, khoảng trắng, v.v.)
+    if (!in_frame) {
+      if (c == '{') {
+        in_frame = true;
+        rx_index = 0;
+        SerialPortData[0] = c;
+        rx_index = 1;
+        SerialPortData[1] = '\0';
+      }
+      // Bỏ qua mọi ký tự khác khi chưa có '{'
+      continue;
+    }
+
+    // Đang trong frame JSON
     if (rx_index < 127) {
       SerialPortData[rx_index++] = c;
       SerialPortData[rx_index] = '\0';
     } else {
-      // Buffer full, reset to avoid overflow
+      // Buffer tràn, reset
       rx_index = 0;
-      SerialPortData[0] = '\0';
+      in_frame = false;
+      continue;
     }
 
     if (c == '}') {
+      // Frame hoàn chỉnh — parse JSON
+      in_frame = false;
       StaticJsonDocument<150> doc;
-      DeserializationError error =
-          deserializeJson(doc, (const char *)SerialPortData);
+      DeserializationError error = deserializeJson(doc, (const char *)SerialPortData);
 
-      // Reset buffer immediately
+      // Reset buffer
       rx_index = 0;
       SerialPortData[0] = '\0';
-      parsed = true;
 
       if (!error) {
         int control_mode_N = doc["N"];
@@ -1304,15 +1323,8 @@ void getBTData_Plus(void) {
         sprintf(buf, "%d", temp);
         CommandSerialNumber = buf;
 
-        Serial.print("{\"dbg\":\"N=");
-        Serial.print(control_mode_N);
-        Serial.print(",H=");
-        Serial.print(temp);
-        Serial.println("\"}");
-
         switch (control_mode_N) {
-        case 1: /*Motion module  processing <command：N 1>*/
-        {
+        case 1: {
           Serial_mode = Serial_programming;
           func_mode = CMD_MotorControl;
           CMD_MotorSelection = doc["D1"];
@@ -1320,61 +1332,35 @@ void getBTData_Plus(void) {
           CMD_MotorSpeed = doc["D3"];
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
-        case 2: /*Remote switching mode  processing <command：N 2>*/
-        {
+        case 2: {
           Serial_mode = Serial_rocker;
           int SpeedRocker = doc["D2"];
-          if (SpeedRocker != 0) {
-            carSpeed_rocker = SpeedRocker;
-          }
-          if (1 == doc["D1"]) {
+          if (SpeedRocker != 0) { carSpeed_rocker = SpeedRocker; }
+          int d1 = doc["D1"];
+          if (d1 >= 1 && d1 <= 9) {
             func_mode = Bluetooth;
-            mov_mode = LEFT;
-          } else if (2 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = RIGHT;
-          } else if (3 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = FORWARD;
-          } else if (4 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = BACK;
-          } else if (5 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = STOP;
-          } else if (6 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = LEFT_FORWARD;
-          } else if (7 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = LEFT_BACK;
-          } else if (8 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = RIGHT_FORWARD;
-          } else if (9 == doc["D1"]) {
-            func_mode = Bluetooth;
-            mov_mode = RIGHT_BACK;
+            switch (d1) {
+              case 1: mov_mode = LEFT; break;
+              case 2: mov_mode = RIGHT; break;
+              case 3: mov_mode = FORWARD; break;
+              case 4: mov_mode = BACK; break;
+              case 5: mov_mode = STOP; break;
+              case 6: mov_mode = LEFT_FORWARD; break;
+              case 7: mov_mode = LEFT_BACK; break;
+              case 8: mov_mode = RIGHT_FORWARD; break;
+              case 9: mov_mode = RIGHT_BACK; break;
+            }
           }
         } break;
-        case 3: /*Remote switching mode  processing <command：N 3>*/
-        {
+        case 3: {
           Serial_mode = Serial_rocker;
-          if (1 == doc["D1"]) // Line Teacking Mode
-          {
-            func_mode = LineTeacking;
-            Serial.print('{' + CommandSerialNumber + "_ok}");
-          } else if (2 == doc["D1"]) // Obstacles Avoidance Mode
-          {
-            func_mode = ObstaclesAvoidance;
-            Serial.print('{' + CommandSerialNumber + "_ok}");
-          } else if (3 == doc["D1"]) // Hand Tracking Mode
-          {
-            func_mode = HandTracking;
-            Serial.print('{' + CommandSerialNumber + "_ok}");
-          }
+          int d1 = doc["D1"];
+          if (d1 == 1) { func_mode = LineTeacking; }
+          else if (d1 == 2) { func_mode = ObstaclesAvoidance; }
+          else if (d1 == 3) { func_mode = HandTracking; }
+          Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
-        case 4: /*Motion module  processing <command：N 4>*/
-        {
+        case 4: {
           Serial_mode = Serial_programming;
           func_mode = CMD_CarControl;
           CMD_CarDirection = doc["D1"];
@@ -1382,24 +1368,20 @@ void getBTData_Plus(void) {
           CMD_CarTimer = doc["T"];
           CMD_CarControl_Millis = millis();
         } break;
-        case 5: /*Clear mode  processing <command：N 5>*/
-        {
+        case 5: {
           func_mode = CMD_ClearAllFunctions;
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
-        case 6: /*CMD mode：angle Setting*/
-        {
+        case 6: {
           uint8_t angleSetting = doc["D1"];
           ServoControl(angleSetting);
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
-        case 21: /*Ultrasonic module  processing <command：N 21>*/
-        {
+        case 21: {
           Serial_mode = Serial_programming;
           CMD_UltrasoundModuleStatus_Plus(doc["D1"]);
         } break;
-        case 22: /*Trace module data processing <command：N 22>*/
-        {
+        case 22: {
           Serial_mode = Serial_programming;
           CMD_TraceModuleStatus_Plus(doc["D1"]);
         } break;
@@ -1410,56 +1392,12 @@ void getBTData_Plus(void) {
           CMD_CarSpeedxxx = doc["D2"];
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
-        case 100: /*Telemetry query  processing <command: N 100>*/
-        {
+        case 100: {
           CMD_Telemetry_Plus();
         } break;
-        default:
-          break;
+        default: break;
         }
       }
-    }
-  }
-
-  // Handle single character command
-  if (!parsed && rx_index > 0 && rx_index < 5) {
-    if (strcmp(SerialPortData, "f") == 0) {
-      func_mode = CMD_CarControlxxx;
-      CMD_CarDirectionxxx = 3;
-      CMD_CarSpeedxxx = 180;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "b") == 0) {
-      func_mode = CMD_CarControlxxx;
-      CMD_CarDirectionxxx = 4;
-      CMD_CarSpeedxxx = 180;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "l") == 0) {
-      func_mode = CMD_CarControlxxx;
-      CMD_CarDirectionxxx = 1;
-      CMD_CarSpeedxxx = 180;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "r") == 0) {
-      func_mode = CMD_CarControlxxx;
-      CMD_CarDirectionxxx = 2;
-      CMD_CarSpeedxxx = 180;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "s") == 0) {
-      func_mode = Bluetooth;
-      mov_mode = STOP;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "1") == 0) {
-      func_mode = LineTeacking;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
-    } else if (strcmp(SerialPortData, "2") == 0) {
-      func_mode = ObstaclesAvoidance;
-      rx_index = 0;
-      SerialPortData[0] = '\0';
     }
   }
 }
