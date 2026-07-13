@@ -194,11 +194,16 @@ unsigned int getDistance(void) { // Getting distance
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
-  // Use 4ms timeout instead of default 1s to avoid blocking serial reads and
-  // reject motor noise pulses
-  tempda_x = (unsigned int)(pulseIn(ECHO_PIN, HIGH, 4000) / ULTRASONIC_DIVISOR);
-  if (tempda_x > 150) {
-    tempda_x = 150;
+  
+  // Timeout 25000 microseconds (~4.2 mét). Nếu quá tầm đo, pulseIn trả về 0.
+  unsigned long duration = pulseIn(ECHO_PIN, HIGH, 25000);
+  if (duration == 0) {
+    tempda_x = 150; // Không có vật cản / ngoài tầm đo
+  } else {
+    tempda_x = (unsigned int)(duration / ULTRASONIC_DIVISOR);
+    if (tempda_x > 150 || tempda_x == 0) {
+      tempda_x = 150;
+    }
   }
   return tempda_x;
 }
