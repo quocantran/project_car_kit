@@ -84,10 +84,9 @@ unsigned int carSpeed_rocker = 250;
   3 // Số lần đọc liên tục trước khi đổi hướng — chống dao động
 
 // ── Hand Tracking Phase 2: Search & Align ──
-#define HT_LOST_TIMEOUT 500      // ms mất tay liên tục trước khi scan
-#define HT_SERVO_SPEED_MS 2      // ms per degree cho dynamic servo settle
+#define HT_SERVO_SETTLE 500      // ms chờ servo ổn định mỗi lần quay
+#define HT_LOST_COUNT 10         // Số lần đọc liên tục mất tay trước khi SEARCH (10*50ms=500ms)
 #define HT_ALIGN_SPEED 110       // PWM quay thân xe (giảm tránh overshoot)
-#define HT_ALIGN_TOLERANCE 5     // ±độ — servo 85°-95° = căn xong
 #define HT_ALIGN_CHECK_INT 100   // ms giữa mỗi lần kiểm tra khi ALIGN
 #define HT_ALIGN_TIMEOUT 3000    // ms tối đa trong ALIGN trước khi → SEARCH
 #define HT_SCAN_COUNT 7          // Số góc scan zig-zag
@@ -322,29 +321,7 @@ void servoWriteNonBlocking(uint8_t angle) {
   servo.write(angle);
 }
 
-/*
-  Reacquire hand: quick blocking scan ±15° around center.
-  Returns angle with distance closest to HT_TARGET_DIST, or 0 if not found.
-  Body should be STOPPED before calling.
-*/
-uint8_t ht_reacquire_hand(uint8_t center) {
-  uint8_t best_angle = 0;
-  int best_diff = 999;
-  uint8_t prev = center;
-  for (int i = -15; i <= 15; i += 5) {
-    uint8_t a = constrain((int)center + i, 5, 175);
-    servoWriteNonBlocking(a);
-    delay((unsigned int)abs((int)a - (int)prev) * HT_SERVO_SPEED_MS + 20);
-    prev = a;
-    int d = getDistance();
-    if (d > 0 && d < HT_MAX_RANGE) {
-      int diff = abs(d - HT_TARGET_DIST);
-      if (diff < best_diff) { best_diff = diff; best_angle = a; }
-    }
-  }
-  if (best_angle > 0) { servoWriteNonBlocking(best_angle); delay(20); }
-  return best_angle;
-}
+
 
 /*
   Infrared Communication Data Acquisition
@@ -577,15 +554,14 @@ void obstacles_avoidance_mode(void) {
 }
 
 /*
-  Hand Tracking Mode — Phase 2 (State Machine v2)
+  Hand Tracking Mode — Phase 2 (State Machine v3)
   TRACK_DISTANCE → LOST_WAIT → SEARCH_HAND → ALIGN_HEADING → TRACK_DISTANCE
 
-  Key design:
-  - Servo is SENSOR in ALIGN (not forced to 90°)
-  - SEARCH scans ALL angles, picks closest to HT_TARGET_DIST
-  - SEARCH remembers last_hand_angle for faster re-acquisition
-  - ALIGN uses reacquire scan when hand drifts
-  - ALIGN has 3s timeout
+  Fixes v3:
+  - Servo settle 500ms cố định (không quá nhanh)
+  - Lost counter: cần 10 lần đọc liên tục mất tay mới chuyển LOST_WAIT
+  - LOST_WAIT có rate limiting tránh block serial
+  - ALIGN đơn giản: tìm tay → servo về 90° → xe quay → tay xuất hiện ở 90° → done
 */
 void hand_tracking_mode(void) {
   // ── Phase 1 variables ──
@@ -599,7 +575,7 @@ void hand_tracking_mode(void) {
 
   // ── Phase 2 variables ──
   static HT_STATE ht_state = HT_TRACK_DISTANCE;
-  // Lost
+  static uint8_t ht_lost_count = 0;
   static unsigned long ht_lost_start = 0;
   // Search
   static uint8_t ht_last_hand_angle = 90;
@@ -608,10 +584,7 @@ void hand_tracking_mode(void) {
   static uint8_t ht_scan_index = 0;
   static uint8_t ht_scan_phase = 0;
   static unsigned long ht_scan_timer = 0;
-  static uint8_t ht_prev_servo = 90;
   // Align
-  static uint8_t ht_servo_angle = 90;
-  static unsigned long ht_align_timer = 0;
   static unsigned long ht_align_start = 0;
 
   // ── Exit mode ──
@@ -625,15 +598,16 @@ void hand_tracking_mode(void) {
   // ── First entry ──
   if (ht_first_entry) {
     servoWriteNonBlocking(90);
-    delay(200);
+    delays(500);
     ema_distance = (float)getDistance();
+    CMD_Distance = (int)ema_distance;
     ht_current_speed = 0;
     ht_active_direction = 0;
     ht_change_counter = 0;
     ht_last_moving_dir = 0;
     ht_state = HT_TRACK_DISTANCE;
     ht_last_hand_angle = 90;
-    ht_lost_start = 0;
+    ht_lost_count = 0;
     stop();
     ht_first_entry = false;
   }
@@ -649,22 +623,31 @@ void hand_tracking_mode(void) {
     ht_last_update = millis();
 
     int raw_dist = getDistance();
+    CMD_Distance = raw_dist;
     int desired_direction = 0;
     int target_speed = 0;
 
-    // Mất tay → chuyển LOST_WAIT
+    // Mất tay: đếm liên tục, cần HT_LOST_COUNT lần mới chuyển state
     if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
-      stop();
-      ht_current_speed = 0;
-      ht_active_direction = 0;
-      mov_mode = STOP;
-      ht_lost_start = millis();
-      ht_state = HT_LOST_WAIT;
-      return;
-    }
+      ht_lost_count++;
+      ema_distance = HT_TARGET_DIST; // Reset EMA tránh bị kéo
+      desired_direction = 0;
+      target_speed = 0;
 
-    // Tay còn → cập nhật EMA
-    ema_distance = HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
+      if (ht_lost_count >= HT_LOST_COUNT) {
+        stop();
+        ht_current_speed = 0;
+        ht_active_direction = 0;
+        mov_mode = STOP;
+        ht_lost_count = 0;
+        ht_lost_start = millis();
+        ht_state = HT_LOST_WAIT;
+        return;
+      }
+    } else {
+      ht_lost_count = 0; // Reset counter khi tay còn
+      ema_distance = HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
+    }
     int dist = (int)ema_distance;
 
     // Bù trễ động & Hysteresis
@@ -676,7 +659,10 @@ void hand_tracking_mode(void) {
     else if (ht_active_direction == 0 && ht_last_moving_dir == 1) upper_bound += HT_HYSTERESIS;
 
     // Tính hướng
-    if (dist >= lower_bound && dist <= upper_bound) {
+    if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
+      // Đang trong giai đoạn đếm lost — dừng xe
+      desired_direction = 0; target_speed = 0;
+    } else if (dist >= lower_bound && dist <= upper_bound) {
       desired_direction = 0; target_speed = 0;
     } else if (dist < HT_SAFE_MIN) {
       desired_direction = 2; target_speed = 140;
@@ -734,21 +720,25 @@ void hand_tracking_mode(void) {
     break;
   }
 
-  // ── STATE: LOST_WAIT ──
+  // ── STATE: LOST_WAIT (chờ thêm trước khi scan, có rate limit) ──
   case HT_LOST_WAIT: {
     stop();
     mov_mode = STOP;
-    // Kiểm tra tay có quay lại không
+    // Rate limit — dùng HT_UPDATE_INTERVAL để không spam getDistance()
+    if (millis() - ht_last_update < HT_UPDATE_INTERVAL) return;
+    ht_last_update = millis();
+
     int check = getDistance();
+    CMD_Distance = check;
     if (check > 0 && check <= HT_MAX_RANGE) {
       // Tay quay lại → về TRACK
       ema_distance = (float)check;
+      ht_lost_count = 0;
       ht_state = HT_TRACK_DISTANCE;
       return;
     }
-    // Hết timeout → SEARCH
-    if (millis() - ht_lost_start >= HT_LOST_TIMEOUT) {
-      // Tạo scan angles centered on last_hand_angle
+    // Chờ thêm 300ms sau lost counter rồi mới SEARCH
+    if (millis() - ht_lost_start >= 300) {
       static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
       for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
         int a = (int)ht_last_hand_angle + offsets[i];
@@ -756,46 +746,37 @@ void hand_tracking_mode(void) {
       }
       ht_scan_index = 0;
       ht_scan_phase = 0;
-      ht_prev_servo = 90;
       ht_state = HT_SEARCH_HAND;
     }
     break;
   }
 
-  // ── STATE: SEARCH_HAND (quét servo, scan hết rồi chọn best) ──
+  // ── STATE: SEARCH_HAND (quét servo 500ms/góc, scan hết chọn best) ──
   case HT_SEARCH_HAND: {
     stop();
     mov_mode = STOP;
 
     switch (ht_scan_phase) {
-    case 0: { // MOVE servo
-      uint8_t target_angle = scan_angles[ht_scan_index];
-      servoWriteNonBlocking(target_angle);
-      // Dynamic settle: abs(delta) * 2ms + 20ms baseline
-      unsigned int settle = (unsigned int)abs((int)target_angle - (int)ht_prev_servo)
-                            * HT_SERVO_SPEED_MS + 20;
-      ht_prev_servo = target_angle;
+    case 0: // MOVE servo đến góc scan
+      servoWriteNonBlocking(scan_angles[ht_scan_index]);
       ht_scan_timer = millis();
-      // Store settle time in a temp way — use scan_distances as temp
-      scan_distances[ht_scan_index] = (settle > 200) ? 200 : settle;
       ht_scan_phase = 1;
       break;
-    }
 
-    case 1: // SETTLE
-      if (millis() - ht_scan_timer >= scan_distances[ht_scan_index])
+    case 1: // SETTLE — chờ 500ms
+      if (millis() - ht_scan_timer >= HT_SERVO_SETTLE)
         ht_scan_phase = 2;
       break;
 
     case 2: { // READ
       int d = getDistance();
-      scan_distances[ht_scan_index] = (d > 250) ? 250 : d; // clamp to uint8_t
+      CMD_Distance = d;
+      scan_distances[ht_scan_index] = (d > 250) ? 250 : d;
       ht_scan_index++;
-      if (ht_scan_index >= HT_SCAN_COUNT) {
+      if (ht_scan_index >= HT_SCAN_COUNT)
         ht_scan_phase = 3; // EVALUATE
-      } else {
-        ht_scan_phase = 0; // next angle
-      }
+      else
+        ht_scan_phase = 0;
       break;
     }
 
@@ -810,32 +791,51 @@ void hand_tracking_mode(void) {
         }
       }
       if (best_idx != 255) {
-        // Tìm thấy tay!
-        ht_servo_angle = scan_angles[best_idx];
-        ht_last_hand_angle = ht_servo_angle;
-        servoWriteNonBlocking(ht_servo_angle);
-        delay(30);
-        // Tay ngay trước mặt → TRACK luôn
-        if (ht_servo_angle >= (90 - HT_ALIGN_TOLERANCE) &&
-            ht_servo_angle <= (90 + HT_ALIGN_TOLERANCE)) {
+        uint8_t found_angle = scan_angles[best_idx];
+        ht_last_hand_angle = found_angle;
+
+        // Tay ngay trước mặt (85°-95°) → TRACK luôn
+        if (found_angle >= 85 && found_angle <= 95) {
           servoWriteNonBlocking(90);
-          delay(50);
-          ema_distance = (float)getDistance();
+          delays(500);
+          int d = getDistance();
+          CMD_Distance = d;
+          ema_distance = (float)d;
           ht_current_speed = 0;
           ht_active_direction = 0;
           ht_change_counter = 0;
           ht_last_moving_dir = 0;
+          ht_lost_count = 0;
           ht_state = HT_TRACK_DISTANCE;
         } else {
-          // Tay lệch → ALIGN (quay thân xe luôn, không stop thêm)
+          // Tay lệch → Gọi hàm rẽ trái/phải để quay sang đúng hướng của tay
+          int angle_error = abs((int)found_angle - 90);
+          unsigned long turn_duration = angle_error * 12; // 12ms mỗi độ lệch
+
+          if (found_angle < 90) {
+            left(false, HT_ALIGN_SPEED);
+            mov_mode = LEFT;
+          } else {
+            right(false, HT_ALIGN_SPEED);
+            mov_mode = RIGHT;
+          }
+
+          // Xoay thân xe trong turn_duration
+          delays(turn_duration);
+          stop();
+          mov_mode = STOP;
+
+          // Sau xoay servo lại về chính giữa (90 độ)
+          servoWriteNonBlocking(90);
+          delays(500); // Chờ servo về chính giữa xong
+
+          // Chuyển sang ALIGN_HEADING để kiểm tra lần cuối
           ht_align_start = millis();
-          ht_align_timer = millis();
           ht_state = HT_ALIGN_HEADING;
         }
       } else {
-        // Không thấy → chờ rồi scan lại
+        // Không thấy → servo về 90°, chờ rồi scan lại
         servoWriteNonBlocking(90);
-        ht_prev_servo = 90;
         ht_scan_timer = millis();
         ht_scan_phase = 4;
       }
@@ -852,13 +852,24 @@ void hand_tracking_mode(void) {
     break;
   }
 
-  // ── STATE: ALIGN_HEADING (servo = sensor, quay thân xe) ──
+  // ── STATE: ALIGN_HEADING ──
+  // Đọc khoảng cách ở servo=90° xem tay đã ở trước mặt chưa
   case HT_ALIGN_HEADING: {
-    // Timeout → quay lại SEARCH
-    if (millis() - ht_align_start >= HT_ALIGN_TIMEOUT) {
-      stop();
-      mov_mode = STOP;
-      // Tạo scan angles lại
+    int d = getDistance();
+    CMD_Distance = d;
+
+    if (d > 0 && d <= HT_MAX_RANGE) {
+      // Tay đã ở chính giữa → căn xong!
+      ema_distance = (float)d;
+      ht_current_speed = 0;
+      ht_active_direction = 0;
+      ht_change_counter = 0;
+      ht_last_moving_dir = 0;
+      ht_lost_count = 0;
+      ht_last_hand_angle = 90;
+      ht_state = HT_TRACK_DISTANCE;
+    } else {
+      // Không thấy → quay lại SEARCH_HAND
       static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
       for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
         int a = (int)ht_last_hand_angle + offsets[i];
@@ -866,74 +877,14 @@ void hand_tracking_mode(void) {
       }
       ht_scan_index = 0;
       ht_scan_phase = 0;
-      ht_prev_servo = ht_servo_angle;
       ht_state = HT_SEARCH_HAND;
-      return;
-    }
-
-    // Kiểm tra đã căn xong chưa (servo ≈ 90°)
-    if (ht_servo_angle >= (90 - HT_ALIGN_TOLERANCE) &&
-        ht_servo_angle <= (90 + HT_ALIGN_TOLERANCE)) {
-      // ═══ CĂN XONG! ═══
-      stop();
-      mov_mode = STOP;
-      servoWriteNonBlocking(90);
-      delay(80);
-      ema_distance = (float)getDistance();
-      ht_current_speed = 0;
-      ht_active_direction = 0;
-      ht_change_counter = 0;
-      ht_last_moving_dir = 0;
-      ht_state = HT_TRACK_DISTANCE;
-      break;
-    }
-
-    // Quay thân xe
-    if (ht_servo_angle < 90) {
-      left(false, HT_ALIGN_SPEED);   // Tay trái → quay trái
-      mov_mode = LEFT;
-    } else {
-      right(false, HT_ALIGN_SPEED);  // Tay phải → quay phải
-      mov_mode = RIGHT;
-    }
-
-    // Định kỳ kiểm tra: servo là SENSOR, đọc distance tại chỗ
-    if (millis() - ht_align_timer >= HT_ALIGN_CHECK_INT) {
-      ht_align_timer = millis();
-      int d = getDistance();
-
-      if (d > 0 && d < HT_MAX_RANGE) {
-        // Tay vẫn thấy tại servo_angle → tiếp tục quay thân
-      } else {
-        // Mất tay → dừng xe, reacquire quanh servo_angle hiện tại
-        stop();
-        uint8_t new_angle = ht_reacquire_hand(ht_servo_angle);
-        if (new_angle > 0) {
-          // Tìm lại được → cập nhật servo_angle
-          ht_servo_angle = new_angle;
-          ht_last_hand_angle = new_angle;
-          // servo_angle tự nhiên dịch về 90° khi body xoay đủ
-        } else {
-          // Không tìm lại được → SEARCH
-          mov_mode = STOP;
-          static const int8_t offsets2[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
-          for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
-            int a = (int)ht_last_hand_angle + offsets2[i];
-            scan_angles[i] = constrain(a, 5, 175);
-          }
-          ht_scan_index = 0;
-          ht_scan_phase = 0;
-          ht_prev_servo = ht_servo_angle;
-          ht_state = HT_SEARCH_HAND;
-          return;
-        }
-      }
     }
     break;
   }
 
   } // end switch
 }
+
 
 
 
@@ -1266,194 +1217,194 @@ void CMD_Telemetry_Plus(void) {
 */
 // #include "hardwareSerial.h"
 void getBTData_Plus(void) {
-  static String SerialPortData = "";
-  uint8_t c = 0;
-  if (Serial.available() > 0) {
-    while ((c != '}') &&
-           Serial.available() >
-               0) // Forcibly wait for a frame of data to finish receiving
-    {
-      // while (Serial.available() == 0)
-      //   ;
-      c = Serial.read();
-      SerialPortData += (char)c;
+  static char SerialPortData[128];
+  static int rx_index = 0;
+  bool parsed = false;
+
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (rx_index < 127) {
+      SerialPortData[rx_index++] = c;
+      SerialPortData[rx_index] = '\0';
+    } else {
+      // Buffer full, reset to avoid overflow
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    }
+
+    if (c == '}') {
+      StaticJsonDocument<150> doc;
+      DeserializationError error = deserializeJson(doc, SerialPortData);
+      
+      // Reset buffer immediately
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+      parsed = true;
+
+      if (!error) {
+        int control_mode_N = doc["N"];
+        char buf[8];
+        uint8_t temp = doc["H"];
+        sprintf(buf, "%d", temp);
+        CommandSerialNumber = buf;
+
+        Serial.print("{\"dbg\":\"N=");
+        Serial.print(control_mode_N);
+        Serial.print(",H=");
+        Serial.print(temp);
+        Serial.println("\"}");
+
+        switch (control_mode_N) {
+        case 1: /*Motion module  processing <command：N 1>*/
+        {
+          Serial_mode = Serial_programming;
+          func_mode = CMD_MotorControl;
+          CMD_MotorSelection = doc["D1"];
+          CMD_MotorDirection = doc["D2"];
+          CMD_MotorSpeed = doc["D3"];
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } break;
+        case 2: /*Remote switching mode  processing <command：N 2>*/
+        {
+          Serial_mode = Serial_rocker;
+          int SpeedRocker = doc["D2"];
+          if (SpeedRocker != 0) {
+            carSpeed_rocker = SpeedRocker;
+          }
+          if (1 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = LEFT;
+          } else if (2 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = RIGHT;
+          } else if (3 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = FORWARD;
+          } else if (4 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = BACK;
+          } else if (5 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = STOP;
+          } else if (6 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = LEFT_FORWARD;
+          } else if (7 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = LEFT_BACK;
+          } else if (8 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = RIGHT_FORWARD;
+          } else if (9 == doc["D1"]) {
+            func_mode = Bluetooth;
+            mov_mode = RIGHT_BACK;
+          }
+        } break;
+        case 3: /*Remote switching mode  processing <command：N 3>*/
+        {
+          Serial_mode = Serial_rocker;
+          if (1 == doc["D1"]) // Line Teacking Mode
+          {
+            func_mode = LineTeacking;
+            Serial.print('{' + CommandSerialNumber + "_ok}");
+          } else if (2 == doc["D1"]) // Obstacles Avoidance Mode
+          {
+            func_mode = ObstaclesAvoidance;
+            Serial.print('{' + CommandSerialNumber + "_ok}");
+          } else if (3 == doc["D1"]) // Hand Tracking Mode
+          {
+            func_mode = HandTracking;
+            Serial.print('{' + CommandSerialNumber + "_ok}");
+          }
+        } break;
+        case 4: /*Motion module  processing <command：N 4>*/
+        {
+          Serial_mode = Serial_programming;
+          func_mode = CMD_CarControl;
+          CMD_CarDirection = doc["D1"];
+          CMD_CarSpeed = doc["D2"];
+          CMD_CarTimer = doc["T"];
+          CMD_CarControl_Millis = millis();
+        } break;
+        case 5: /*Clear mode  processing <command：N 5>*/
+        {
+          func_mode = CMD_ClearAllFunctions;
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } break;
+        case 6: /*CMD mode：angle Setting*/
+        {
+          uint8_t angleSetting = doc["D1"];
+          ServoControl(angleSetting);
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } break;
+        case 21: /*Ultrasonic module  processing <command：N 21>*/
+        {
+          Serial_mode = Serial_programming;
+          CMD_UltrasoundModuleStatus_Plus(doc["D1"]);
+        } break;
+        case 22: /*Trace module data processing <command：N 22>*/
+        {
+          Serial_mode = Serial_programming;
+          CMD_TraceModuleStatus_Plus(doc["D1"]);
+        } break;
+        case 40: {
+          Serial_mode = Serial_programming;
+          func_mode = CMD_CarControlxxx;
+          CMD_CarDirectionxxx = doc["D1"];
+          CMD_CarSpeedxxx = doc["D2"];
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } break;
+        case 100: /*Telemetry query  processing <command: N 100>*/
+        {
+          CMD_Telemetry_Plus();
+        } break;
+        default:
+          break;
+        }
+      }
     }
   }
-  if (c == '}') {
-    // Serial.println(SerialPortData);
-    StaticJsonDocument<200> doc; // Create a JsonDocument object
-    DeserializationError error =
-        deserializeJson(doc, SerialPortData); // Deserialize JSON data
-    SerialPortData = "";
-    if (!error) // Check if deserialization is successful
-    {
-      int control_mode_N = doc["N"];
-      char buf[8]; // Fixed: was buf[3], overflows when H >= 100 (e.g. "176\0" =
-                   // 4 bytes)
-      uint8_t temp = doc["H"];
-      sprintf(buf, "%d", temp);
-      CommandSerialNumber = buf; // Get the serial number of the new command
-      // Debug echo: confirm Arduino received and parsed the command
-      Serial.print("{\"dbg\":\"N=");
-      Serial.print(control_mode_N);
-      Serial.print(",H=");
-      Serial.print(temp);
-      Serial.println("\"}");
-      switch (control_mode_N) {
-      case 1: /*Motion module  processing <command：N 1>*/
-      {
-        Serial_mode = Serial_programming;
-        func_mode = CMD_MotorControl;
-        CMD_MotorSelection = doc["D1"];
-        CMD_MotorDirection = doc["D2"];
-        CMD_MotorSpeed = doc["D3"];
-        Serial.print('{' + CommandSerialNumber + "_ok}");
-      } break;
-      case 2: /*Remote switching mode  processing <command：N 2>*/
-      {
-        Serial_mode = Serial_rocker;
-        int SpeedRocker = doc["D2"];
-        if (SpeedRocker != 0) {
-          carSpeed_rocker = SpeedRocker;
-        }
-        if (1 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = LEFT;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (2 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = RIGHT;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (3 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = FORWARD;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (4 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = BACK;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (5 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = STOP;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (6 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = LEFT_FORWARD;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (7 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = LEFT_BACK;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (8 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = RIGHT_FORWARD;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (9 == doc["D1"]) {
-          func_mode = Bluetooth;
-          mov_mode = RIGHT_BACK;
-          // Serial.print('{' + CommandSerialNumber + "_ok}");
-        }
-      } break;
-      case 3: /*Remote switching mode  processing <command：N 3>*/
-      {
-        Serial_mode = Serial_rocker;
-        if (1 == doc["D1"]) // Line Teacking Mode
-        {
-          func_mode = LineTeacking;
-          Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (2 == doc["D1"]) // Obstacles Avoidance Mode
-        {
-          func_mode = ObstaclesAvoidance;
-          Serial.print('{' + CommandSerialNumber + "_ok}");
-        } else if (3 == doc["D1"]) // Hand Tracking Mode
-        {
-          func_mode = HandTracking;
-          Serial.print('{' + CommandSerialNumber + "_ok}");
-        }
-      } break;
-      case 4: /*Motion module  processing <command：N 4>*/
-      {
-        Serial_mode = Serial_programming;
-        func_mode = CMD_CarControl;
-        CMD_CarDirection = doc["D1"];
-        CMD_CarSpeed = doc["D2"];
-        CMD_CarTimer = doc["T"];
-        CMD_CarControl_Millis = millis(); // Get the timestamp
-        // Serial.print("{ok}");
-      } break;
-      case 5: /*Clear mode  processing <command：N 5>*/
-      {
-        func_mode = CMD_ClearAllFunctions;
-        Serial.print('{' + CommandSerialNumber + "_ok}");
-      }
 
-      break;
-      case 6: /*CMD mode：angle Setting*/
-      {
-        uint8_t angleSetting = doc["D1"];
-        ServoControl(angleSetting);
-        Serial.print('{' + CommandSerialNumber + "_ok}");
-      }
-
-      break;
-      case 21: /*Ultrasonic module  processing <command：N 21>*/
-      {
-        Serial_mode = Serial_programming;
-        CMD_UltrasoundModuleStatus_Plus(doc["D1"]);
-      }
-
-      break;
-      case 22: /*Trace module data processing <command：N 22>*/
-      {
-        Serial_mode = Serial_programming;
-        CMD_TraceModuleStatus_Plus(doc["D1"]);
-      } break;
-      case 40: {
-        Serial_mode = Serial_programming;
-        func_mode = CMD_CarControlxxx;
-        CMD_CarDirectionxxx = doc["D1"];
-        CMD_CarSpeedxxx = doc["D2"];
-        Serial.print('{' + CommandSerialNumber + "_ok}");
-      } break;
-      case 100: /*Telemetry query  processing <command: N 100>*/
-      {
-        CMD_Telemetry_Plus();
-      } break;
-      default:
-        break;
-      }
-    }
-  } else if (SerialPortData != "") {
-    if (true == SerialPortData.equals("f")) {
+  // Handle single character command
+  if (!parsed && rx_index > 0 && rx_index < 5) {
+    if (strcmp(SerialPortData, "f") == 0) {
       func_mode = CMD_CarControlxxx;
       CMD_CarDirectionxxx = 3;
       CMD_CarSpeedxxx = 180;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("b")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "b") == 0) {
       func_mode = CMD_CarControlxxx;
       CMD_CarDirectionxxx = 4;
       CMD_CarSpeedxxx = 180;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("l")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "l") == 0) {
       func_mode = CMD_CarControlxxx;
       CMD_CarDirectionxxx = 1;
       CMD_CarSpeedxxx = 180;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("r")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "r") == 0) {
       func_mode = CMD_CarControlxxx;
       CMD_CarDirectionxxx = 2;
       CMD_CarSpeedxxx = 180;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("s")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "s") == 0) {
       func_mode = Bluetooth;
       mov_mode = STOP;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("1")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "1") == 0) {
       func_mode = LineTeacking;
-      SerialPortData = "";
-    } else if (true == SerialPortData.equals("2")) {
+      rx_index = 0;
+      SerialPortData[0] = '\0';
+    } else if (strcmp(SerialPortData, "2") == 0) {
       func_mode = ObstaclesAvoidance;
-      SerialPortData = "";
+      rx_index = 0;
+      SerialPortData[0] = '\0';
     }
   }
 }
@@ -1488,9 +1439,11 @@ void loop(void) {
   hand_tracking_mode();       // Hand Tracking Mode (Phase 1)
 
   // Throttle distance reads to avoid blocking serial (pulseIn is slow)
-  if (millis() - lastDistanceMillis >= DISTANCE_INTERVAL) {
-    CMD_Distance = getDistance();
-    lastDistanceMillis = millis();
+  if (func_mode != HandTracking) {
+    if (millis() - lastDistanceMillis >= DISTANCE_INTERVAL) {
+      CMD_Distance = getDistance();
+      lastDistanceMillis = millis();
+    }
   }
   /*CMD_MotorControl: Motor Control： Motor Speed、Motor Direction、Motor Time*/
   CMD_MotorControl_Plus(CMD_MotorSelection, CMD_MotorDirection,
