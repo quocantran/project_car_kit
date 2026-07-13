@@ -862,11 +862,11 @@ void hand_tracking_mode(void) {
           unsigned long turn_duration = angle_error * 12; // 12ms mỗi độ lệch
 
           if (found_angle < 90) {
-            left(false, HT_ALIGN_SPEED);
-            mov_mode = LEFT;
-          } else {
             right(false, HT_ALIGN_SPEED);
             mov_mode = RIGHT;
+          } else {
+            left(false, HT_ALIGN_SPEED);
+            mov_mode = LEFT;
           }
 
           // Xoay thân xe trong turn_duration
