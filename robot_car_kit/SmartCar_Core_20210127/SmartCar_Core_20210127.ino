@@ -83,6 +83,15 @@ unsigned int carSpeed_rocker = 250;
 #define HT_STABLE_COUNT                                                        \
   3 // Số lần đọc liên tục trước khi đổi hướng — chống dao động
 
+// ── Hand Tracking Phase 2: Search & Align ──
+#define HT_LOST_TIMEOUT 500      // ms mất tay liên tục trước khi scan
+#define HT_SERVO_SPEED_MS 2      // ms per degree cho dynamic servo settle
+#define HT_ALIGN_SPEED 110       // PWM quay thân xe (giảm tránh overshoot)
+#define HT_ALIGN_TOLERANCE 5     // ±độ — servo 85°-95° = căn xong
+#define HT_ALIGN_CHECK_INT 100   // ms giữa mỗi lần kiểm tra khi ALIGN
+#define HT_ALIGN_TIMEOUT 3000    // ms tối đa trong ALIGN trước khi → SEARCH
+#define HT_SCAN_COUNT 7          // Số góc scan zig-zag
+
 // Throttle getDistance() to avoid blocking serial reads
 unsigned long lastDistanceMillis = 0;
 #define DISTANCE_INTERVAL 500 // Only read distance every 500ms
@@ -149,6 +158,13 @@ enum MOTIONMODE {
   RIGHT_FORWARD,
   RIGHT_BACK,
 } mov_mode = STOP; /*move mode*/
+
+enum HT_STATE {
+  HT_TRACK_DISTANCE, // Theo dõi tiến/lùi (Phase 1)
+  HT_LOST_WAIT,      // Chờ xác nhận mất tay trước khi scan
+  HT_SEARCH_HAND,    // Quét servo zig-zag tìm tay
+  HT_ALIGN_HEADING,  // Quay thân xe căn hướng
+};
 
 void delays(unsigned long t) {
   for (unsigned long i = 0; i < t; i++) {
@@ -294,6 +310,40 @@ void ServoControl(uint8_t angleSetting) {
   servo.write(angleSetting); // sets the servo position according to the  value
   delays(500);
   servo.detach();
+}
+
+/*
+  Non-blocking servo write for Hand Tracking scan/align.
+  Sets angle and returns immediately — caller manages timing.
+*/
+void servoWriteNonBlocking(uint8_t angle) {
+  angle = constrain(angle, 5, 175);
+  servo.attach(PIN_Servo);
+  servo.write(angle);
+}
+
+/*
+  Reacquire hand: quick blocking scan ±15° around center.
+  Returns angle with distance closest to HT_TARGET_DIST, or 0 if not found.
+  Body should be STOPPED before calling.
+*/
+uint8_t ht_reacquire_hand(uint8_t center) {
+  uint8_t best_angle = 0;
+  int best_diff = 999;
+  uint8_t prev = center;
+  for (int i = -15; i <= 15; i += 5) {
+    uint8_t a = constrain((int)center + i, 5, 175);
+    servoWriteNonBlocking(a);
+    delay((unsigned int)abs((int)a - (int)prev) * HT_SERVO_SPEED_MS + 20);
+    prev = a;
+    int d = getDistance();
+    if (d > 0 && d < HT_MAX_RANGE) {
+      int diff = abs(d - HT_TARGET_DIST);
+      if (diff < best_diff) { best_diff = diff; best_angle = a; }
+    }
+  }
+  if (best_angle > 0) { servoWriteNonBlocking(best_angle); delay(20); }
+  return best_angle;
 }
 
 /*
@@ -527,186 +577,365 @@ void obstacles_avoidance_mode(void) {
 }
 
 /*
-  Hand Tracking Mode — Phase 1 (v3: fix deadlock)
-  Xe tự động tiến/lùi để duy trì khoảng cách mục tiêu với bàn tay
+  Hand Tracking Mode — Phase 2 (State Machine v2)
+  TRACK_DISTANCE → LOST_WAIT → SEARCH_HAND → ALIGN_HEADING → TRACK_DISTANCE
 
-  Cơ chế chống dao động:
-  1. Hysteresis hướng: khi xe vừa dừng, mở rộng deadzone CHỈ về phía hướng cũ
-  2. Stable count: CHỈ áp dụng khi ĐẢO HƯỚNG (forward↔back), KHÔNG block khởi
-  động
-  3. EMA mượt (alpha thấp) + ramp nhỏ: giảm quá đà do quán tính
+  Key design:
+  - Servo is SENSOR in ALIGN (not forced to 90°)
+  - SEARCH scans ALL angles, picks closest to HT_TARGET_DIST
+  - SEARCH remembers last_hand_angle for faster re-acquisition
+  - ALIGN uses reacquire scan when hand drifts
+  - ALIGN has 3s timeout
 */
 void hand_tracking_mode(void) {
+  // ── Phase 1 variables ──
   static float ema_distance = 0;
   static int ht_current_speed = 0;
   static unsigned long ht_last_update = 0;
   static boolean ht_first_entry = true;
-  static int ht_active_direction =
-      0; // Hướng đang thực thi: 0=stop, 1=forward, 2=back
-  static uint8_t ht_change_counter =
-      0; // Đếm số lần đọc liên tục khi muốn ĐẢO hướng
-  static int ht_last_moving_dir = 0; // Hướng chạy cuối cùng trước khi dừng
+  static int ht_active_direction = 0;
+  static uint8_t ht_change_counter = 0;
+  static int ht_last_moving_dir = 0;
 
+  // ── Phase 2 variables ──
+  static HT_STATE ht_state = HT_TRACK_DISTANCE;
+  // Lost
+  static unsigned long ht_lost_start = 0;
+  // Search
+  static uint8_t ht_last_hand_angle = 90;
+  static uint8_t scan_angles[HT_SCAN_COUNT];
+  static uint8_t scan_distances[HT_SCAN_COUNT];
+  static uint8_t ht_scan_index = 0;
+  static uint8_t ht_scan_phase = 0;
+  static unsigned long ht_scan_timer = 0;
+  static uint8_t ht_prev_servo = 90;
+  // Align
+  static uint8_t ht_servo_angle = 90;
+  static unsigned long ht_align_timer = 0;
+  static unsigned long ht_align_start = 0;
+
+  // ── Exit mode ──
   if (func_mode != HandTracking) {
+    if (!ht_first_entry) { stop(); servo.detach(); }
     ht_first_entry = true;
+    ht_state = HT_TRACK_DISTANCE;
     return;
   }
 
-  // First entry: initialize servo to front-facing and prime EMA filter
+  // ── First entry ──
   if (ht_first_entry) {
-    ServoControl(90);
+    servoWriteNonBlocking(90);
+    delay(200);
     ema_distance = (float)getDistance();
     ht_current_speed = 0;
     ht_active_direction = 0;
     ht_change_counter = 0;
     ht_last_moving_dir = 0;
+    ht_state = HT_TRACK_DISTANCE;
+    ht_last_hand_angle = 90;
+    ht_lost_start = 0;
     stop();
     ht_first_entry = false;
   }
 
-  // Rate limiting
-  if (millis() - ht_last_update < HT_UPDATE_INTERVAL)
-    return;
-  ht_last_update = millis();
+  // ══════════════════════════════════════
+  //           STATE MACHINE
+  // ══════════════════════════════════════
+  switch (ht_state) {
 
-  // Read raw distance and apply EMA filter
-  int raw_dist = getDistance();
+  // ── STATE: TRACK_DISTANCE ──
+  case HT_TRACK_DISTANCE: {
+    if (millis() - ht_last_update < HT_UPDATE_INTERVAL) return;
+    ht_last_update = millis();
 
-  int desired_direction = 0;
-  int target_speed = 0;
+    int raw_dist = getDistance();
+    int desired_direction = 0;
+    int target_speed = 0;
 
-  // ── Kiểm tra mất vật cản đột ngột (sensor trả về 0 hoặc vượt quá phạm vi) ──
-  // Cảm biến trả về 0 khi không nhận được echo (ví dụ: rút tay ra quá nhanh
-  // hoặc xa)
-  if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
-    desired_direction = 0;
-    target_speed = 0;
-    ema_distance =
-        HT_TARGET_DIST; // Reset bộ lọc về 20 để dừng xe ngay, tránh bị kéo lùi
-  } else {
-    ema_distance =
-        HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
-  }
-  int dist = (int)ema_distance;
+    // Mất tay → chuyển LOST_WAIT
+    if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
+      stop();
+      ht_current_speed = 0;
+      ht_active_direction = 0;
+      mov_mode = STOP;
+      ht_lost_start = millis();
+      ht_state = HT_LOST_WAIT;
+      return;
+    }
 
-  // ── Bù trễ động (Dynamic Lag Compensation) & Hysteresis ──
-  int lower_bound = HT_TARGET_DIST - HT_DEADZONE; // 16cm
-  int upper_bound = HT_TARGET_DIST + HT_DEADZONE; // 24cm
+    // Tay còn → cập nhật EMA
+    ema_distance = HT_EMA_ALPHA * (float)raw_dist + (1.0 - HT_EMA_ALPHA) * ema_distance;
+    int dist = (int)ema_distance;
 
-  // Bù trễ khi xe đang di chuyển: phanh sớm hơn để trừ hao trôi bánh và trễ cảm
-  // biến
-  if (ht_active_direction == 2) {
-    // Đang lùi: dừng sớm hơn (nâng ngưỡng dưới lên 18cm)
-    lower_bound += 2;
-  } else if (ht_active_direction == 1) {
-    // Đang tiến: dừng sớm hơn (hạ ngưỡng trên xuống 22cm)
-    upper_bound -= 2;
-  }
+    // Bù trễ động & Hysteresis
+    int lower_bound = HT_TARGET_DIST - HT_DEADZONE;
+    int upper_bound = HT_TARGET_DIST + HT_DEADZONE;
+    if (ht_active_direction == 2) lower_bound += 2;
+    else if (ht_active_direction == 1) upper_bound -= 2;
+    if (ht_active_direction == 0 && ht_last_moving_dir == 2) lower_bound -= HT_HYSTERESIS;
+    else if (ht_active_direction == 0 && ht_last_moving_dir == 1) upper_bound += HT_HYSTERESIS;
 
-  // Hysteresis khi xe đang dừng: chỉ mở rộng deadzone về phía hướng xe vừa chạy
-  if (ht_active_direction == 0 && ht_last_moving_dir == 2) {
-    lower_bound -= HT_HYSTERESIS; // 13cm
-  } else if (ht_active_direction == 0 && ht_last_moving_dir == 1) {
-    upper_bound += HT_HYSTERESIS; // 27cm
-  }
-
-  // ── Tính hướng mong muốn ──
-  desired_direction = 0;
-  target_speed = 0;
-
-  if (raw_dist == 0 || raw_dist > HT_MAX_RANGE) {
-    // Đã xử lý ở trên, giữ dừng
-    desired_direction = 0;
-    target_speed = 0;
-  } else if (dist >= lower_bound && dist <= upper_bound) {
-    // Trong deadzone — giữ nguyên
-    desired_direction = 0;
-    target_speed = 0;
-  } else if (dist < HT_SAFE_MIN) {
-    // Quá gần — lùi tốc độ max (nhưng lùi nhẹ hơn tiến)
-    desired_direction = 2;
-    target_speed = 140; // Giới hạn tốc độ lùi tối đa an toàn để giảm trượt đà
-  } else if (dist < lower_bound) {
-    // Tay tiến lại gần — lùi tỷ lệ
-    desired_direction = 2;
-    int error = lower_bound - dist;
-    int range = lower_bound - HT_SAFE_MIN;
-    if (range > 0) {
-      target_speed = map(error, 0, range, HT_SPEED_MIN, 140);
+    // Tính hướng
+    if (dist >= lower_bound && dist <= upper_bound) {
+      desired_direction = 0; target_speed = 0;
+    } else if (dist < HT_SAFE_MIN) {
+      desired_direction = 2; target_speed = 140;
+    } else if (dist < lower_bound) {
+      desired_direction = 2;
+      int error = lower_bound - dist;
+      int range = lower_bound - HT_SAFE_MIN;
+      target_speed = (range > 0) ? map(error, 0, range, HT_SPEED_MIN, 140) : 140;
     } else {
-      target_speed = 140;
+      desired_direction = 1;
+      int error = dist - upper_bound;
+      int range = HT_MAX_RANGE - upper_bound;
+      target_speed = (range > 0) ? map(error, 0, range, HT_SPEED_MIN, HT_SPEED_MAX) : HT_SPEED_MIN;
     }
-  } else {
-    // Tay rút xa — tiến theo tỷ lệ
-    desired_direction = 1;
-    int error = dist - upper_bound;
-    int range = HT_MAX_RANGE - upper_bound;
-    if (range > 0) {
-      target_speed = map(error, 0, range, HT_SPEED_MIN, HT_SPEED_MAX);
-    } else {
-      target_speed = HT_SPEED_MIN;
-    }
-  }
+    target_speed = constrain(target_speed, 0, HT_SPEED_MAX);
 
-  target_speed = constrain(target_speed, 0, HT_SPEED_MAX);
-
-  // ── Direction logic ──
-  if (desired_direction == ht_active_direction) {
-    // Cùng hướng — chạy bình thường
-    ht_change_counter = 0;
-  } else if (desired_direction == 0) {
-    // Muốn dừng — cho dừng ngay
-    if (ht_active_direction != 0) {
-      ht_last_moving_dir = ht_active_direction; // Nhớ hướng cuối cho hysteresis
-    }
-    ht_active_direction = 0;
-    ht_change_counter = 0;
-  } else if (ht_active_direction == 0) {
-    // KHỞI ĐỘNG từ dừng → cho phép ngay, KHÔNG cần chờ stable count
-    ht_active_direction = desired_direction;
-    ht_change_counter = 0;
-    ht_last_moving_dir = 0; // Xóa hysteresis sau khi khởi động
-  } else {
-    // ĐẢO HƯỚNG (forward↔back) — phải chờ stable count
-    ht_change_counter++;
-    if (ht_change_counter >= HT_STABLE_COUNT) {
+    // Direction logic
+    if (desired_direction == ht_active_direction) {
+      ht_change_counter = 0;
+    } else if (desired_direction == 0) {
+      if (ht_active_direction != 0) ht_last_moving_dir = ht_active_direction;
+      ht_active_direction = 0;
+      ht_change_counter = 0;
+    } else if (ht_active_direction == 0) {
       ht_active_direction = desired_direction;
       ht_change_counter = 0;
       ht_last_moving_dir = 0;
     } else {
-      // Chưa đủ — buộc dừng trong khi chờ
-      target_speed = 0;
+      ht_change_counter++;
+      if (ht_change_counter >= HT_STABLE_COUNT) {
+        ht_active_direction = desired_direction;
+        ht_change_counter = 0;
+        ht_last_moving_dir = 0;
+      } else {
+        target_speed = 0;
+      }
     }
-  }
 
-  // ── Acceleration/Deceleration ramping ──
-  if (target_speed > ht_current_speed) {
-    // Tăng tốc mượt từ từ
-    ht_current_speed = min(ht_current_speed + HT_RAMP_STEP, target_speed);
-  } else {
-    // Giảm tốc nhanh hơn (hoặc dừng ngay lập tức nếu target_speed = 0) để tránh
-    // trôi xe quá đà
-    if (target_speed == 0) {
+    // Ramping
+    if (target_speed > ht_current_speed)
+      ht_current_speed = min(ht_current_speed + HT_RAMP_STEP, target_speed);
+    else if (target_speed == 0)
       ht_current_speed = 0;
+    else
+      ht_current_speed = max(ht_current_speed - (HT_RAMP_STEP * 2), target_speed);
+
+    // Execute
+    if (ht_active_direction == 0) {
+      stop(); mov_mode = STOP; ht_current_speed = 0;
+    } else if (ht_active_direction == 1) {
+      forward(false, ht_current_speed); mov_mode = FORWARD;
     } else {
-      ht_current_speed =
-          max(ht_current_speed - (HT_RAMP_STEP * 2), target_speed);
+      back(false, ht_current_speed); mov_mode = BACK;
     }
+    break;
   }
 
-  // ── Execute movement ──
-  if (ht_active_direction == 0) {
+  // ── STATE: LOST_WAIT ──
+  case HT_LOST_WAIT: {
     stop();
     mov_mode = STOP;
-    ht_current_speed = 0; // Chỉ reset khi THỰC SỰ muốn dừng
-  } else if (ht_active_direction == 1) {
-    forward(false, ht_current_speed);
-    mov_mode = FORWARD;
-  } else if (ht_active_direction == 2) {
-    back(false, ht_current_speed);
-    mov_mode = BACK;
+    // Kiểm tra tay có quay lại không
+    int check = getDistance();
+    if (check > 0 && check <= HT_MAX_RANGE) {
+      // Tay quay lại → về TRACK
+      ema_distance = (float)check;
+      ht_state = HT_TRACK_DISTANCE;
+      return;
+    }
+    // Hết timeout → SEARCH
+    if (millis() - ht_lost_start >= HT_LOST_TIMEOUT) {
+      // Tạo scan angles centered on last_hand_angle
+      static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
+      for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
+        int a = (int)ht_last_hand_angle + offsets[i];
+        scan_angles[i] = constrain(a, 5, 175);
+      }
+      ht_scan_index = 0;
+      ht_scan_phase = 0;
+      ht_prev_servo = 90;
+      ht_state = HT_SEARCH_HAND;
+    }
+    break;
   }
+
+  // ── STATE: SEARCH_HAND (quét servo, scan hết rồi chọn best) ──
+  case HT_SEARCH_HAND: {
+    stop();
+    mov_mode = STOP;
+
+    switch (ht_scan_phase) {
+    case 0: { // MOVE servo
+      uint8_t target_angle = scan_angles[ht_scan_index];
+      servoWriteNonBlocking(target_angle);
+      // Dynamic settle: abs(delta) * 2ms + 20ms baseline
+      unsigned int settle = (unsigned int)abs((int)target_angle - (int)ht_prev_servo)
+                            * HT_SERVO_SPEED_MS + 20;
+      ht_prev_servo = target_angle;
+      ht_scan_timer = millis();
+      // Store settle time in a temp way — use scan_distances as temp
+      scan_distances[ht_scan_index] = (settle > 200) ? 200 : settle;
+      ht_scan_phase = 1;
+      break;
+    }
+
+    case 1: // SETTLE
+      if (millis() - ht_scan_timer >= scan_distances[ht_scan_index])
+        ht_scan_phase = 2;
+      break;
+
+    case 2: { // READ
+      int d = getDistance();
+      scan_distances[ht_scan_index] = (d > 250) ? 250 : d; // clamp to uint8_t
+      ht_scan_index++;
+      if (ht_scan_index >= HT_SCAN_COUNT) {
+        ht_scan_phase = 3; // EVALUATE
+      } else {
+        ht_scan_phase = 0; // next angle
+      }
+      break;
+    }
+
+    case 3: { // EVALUATE — chọn góc có distance gần HT_TARGET_DIST nhất
+      uint8_t best_idx = 255;
+      int best_diff = 999;
+      for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
+        uint8_t d = scan_distances[i];
+        if (d > 0 && d < HT_MAX_RANGE) {
+          int diff = abs((int)d - HT_TARGET_DIST);
+          if (diff < best_diff) { best_diff = diff; best_idx = i; }
+        }
+      }
+      if (best_idx != 255) {
+        // Tìm thấy tay!
+        ht_servo_angle = scan_angles[best_idx];
+        ht_last_hand_angle = ht_servo_angle;
+        servoWriteNonBlocking(ht_servo_angle);
+        delay(30);
+        // Tay ngay trước mặt → TRACK luôn
+        if (ht_servo_angle >= (90 - HT_ALIGN_TOLERANCE) &&
+            ht_servo_angle <= (90 + HT_ALIGN_TOLERANCE)) {
+          servoWriteNonBlocking(90);
+          delay(50);
+          ema_distance = (float)getDistance();
+          ht_current_speed = 0;
+          ht_active_direction = 0;
+          ht_change_counter = 0;
+          ht_last_moving_dir = 0;
+          ht_state = HT_TRACK_DISTANCE;
+        } else {
+          // Tay lệch → ALIGN (quay thân xe luôn, không stop thêm)
+          ht_align_start = millis();
+          ht_align_timer = millis();
+          ht_state = HT_ALIGN_HEADING;
+        }
+      } else {
+        // Không thấy → chờ rồi scan lại
+        servoWriteNonBlocking(90);
+        ht_prev_servo = 90;
+        ht_scan_timer = millis();
+        ht_scan_phase = 4;
+      }
+      break;
+    }
+
+    case 4: // WAIT trước khi scan lại
+      if (millis() - ht_scan_timer >= 500) {
+        ht_scan_index = 0;
+        ht_scan_phase = 0;
+      }
+      break;
+    }
+    break;
+  }
+
+  // ── STATE: ALIGN_HEADING (servo = sensor, quay thân xe) ──
+  case HT_ALIGN_HEADING: {
+    // Timeout → quay lại SEARCH
+    if (millis() - ht_align_start >= HT_ALIGN_TIMEOUT) {
+      stop();
+      mov_mode = STOP;
+      // Tạo scan angles lại
+      static const int8_t offsets[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
+      for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
+        int a = (int)ht_last_hand_angle + offsets[i];
+        scan_angles[i] = constrain(a, 5, 175);
+      }
+      ht_scan_index = 0;
+      ht_scan_phase = 0;
+      ht_prev_servo = ht_servo_angle;
+      ht_state = HT_SEARCH_HAND;
+      return;
+    }
+
+    // Kiểm tra đã căn xong chưa (servo ≈ 90°)
+    if (ht_servo_angle >= (90 - HT_ALIGN_TOLERANCE) &&
+        ht_servo_angle <= (90 + HT_ALIGN_TOLERANCE)) {
+      // ═══ CĂN XONG! ═══
+      stop();
+      mov_mode = STOP;
+      servoWriteNonBlocking(90);
+      delay(80);
+      ema_distance = (float)getDistance();
+      ht_current_speed = 0;
+      ht_active_direction = 0;
+      ht_change_counter = 0;
+      ht_last_moving_dir = 0;
+      ht_state = HT_TRACK_DISTANCE;
+      break;
+    }
+
+    // Quay thân xe
+    if (ht_servo_angle < 90) {
+      left(false, HT_ALIGN_SPEED);   // Tay trái → quay trái
+      mov_mode = LEFT;
+    } else {
+      right(false, HT_ALIGN_SPEED);  // Tay phải → quay phải
+      mov_mode = RIGHT;
+    }
+
+    // Định kỳ kiểm tra: servo là SENSOR, đọc distance tại chỗ
+    if (millis() - ht_align_timer >= HT_ALIGN_CHECK_INT) {
+      ht_align_timer = millis();
+      int d = getDistance();
+
+      if (d > 0 && d < HT_MAX_RANGE) {
+        // Tay vẫn thấy tại servo_angle → tiếp tục quay thân
+      } else {
+        // Mất tay → dừng xe, reacquire quanh servo_angle hiện tại
+        stop();
+        uint8_t new_angle = ht_reacquire_hand(ht_servo_angle);
+        if (new_angle > 0) {
+          // Tìm lại được → cập nhật servo_angle
+          ht_servo_angle = new_angle;
+          ht_last_hand_angle = new_angle;
+          // servo_angle tự nhiên dịch về 90° khi body xoay đủ
+        } else {
+          // Không tìm lại được → SEARCH
+          mov_mode = STOP;
+          static const int8_t offsets2[HT_SCAN_COUNT] = {0, -30, 30, -45, 45, -60, 60};
+          for (uint8_t i = 0; i < HT_SCAN_COUNT; i++) {
+            int a = (int)ht_last_hand_angle + offsets2[i];
+            scan_angles[i] = constrain(a, 5, 175);
+          }
+          ht_scan_index = 0;
+          ht_scan_phase = 0;
+          ht_prev_servo = ht_servo_angle;
+          ht_state = HT_SEARCH_HAND;
+          return;
+        }
+      }
+    }
+    break;
+  }
+
+  } // end switch
 }
+
+
 
 /*****************************************************Begin@CMD**************************************************************************************/
 
