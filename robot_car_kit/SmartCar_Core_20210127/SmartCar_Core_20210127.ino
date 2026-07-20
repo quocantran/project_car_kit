@@ -867,7 +867,7 @@ void hand_tracking_mode(void) {
         } else {
           // Tay lệch → Xoay servo về đúng hướng tay trước, rồi quay thân xe
           int angle_error = abs((int)found_angle - 90);
-          unsigned long turn_duration = angle_error * 12; // 12ms mỗi độ lệch
+          unsigned long turn_duration = angle_error * 8; // 8ms mỗi độ lệch (giảm từ 12 để xe quay sát tay hơn)
 
           // ★ FIX: Di chuyển servo về found_angle TRƯỚC khi quay thân xe
           // Sau khi scan xong, servo đang ở góc cuối cùng (150°),
