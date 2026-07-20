@@ -867,21 +867,21 @@ void hand_tracking_mode(void) {
         } else {
           // Tay lệch → Xoay servo về đúng hướng tay trước, rồi quay thân xe
           int angle_error = abs((int)found_angle - 90);
-          unsigned long turn_duration = angle_error * 8; // 8ms mỗi độ lệch (giảm từ 12 để xe quay sát tay hơn)
 
           // ★ FIX: Di chuyển servo về found_angle TRƯỚC khi quay thân xe
-          // Sau khi scan xong, servo đang ở góc cuối cùng (150°),
-          // KHÔNG PHẢI ở góc tìm thấy tay. Cần đưa servo về đúng hướng tay
-          // để servo chỉ đúng hướng trong suốt quá trình xe quay.
           servoWriteNonBlocking(found_angle);
           safe_delay(HT_SERVO_SETTLE); // Chờ servo ổn định ở hướng tay
 
+          // Hệ số ms/độ riêng cho mỗi hướng (motor trái/phải khác nhau)
+          unsigned long turn_duration;
           if (found_angle < 90) {
             // Tay bên PHẢI → servo chỉ sang PHẢI, xe quay PHẢI
+            turn_duration = angle_error * 12; // Quay phải cần nhiều thời gian hơn
             right(false, HT_ALIGN_SPEED);
             mov_mode = RIGHT;
           } else {
             // Tay bên TRÁI → servo chỉ sang TRÁI, xe quay TRÁI
+            turn_duration = angle_error * 8;
             left(false, HT_ALIGN_SPEED);
             mov_mode = LEFT;
           }
