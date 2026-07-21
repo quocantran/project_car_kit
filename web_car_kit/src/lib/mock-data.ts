@@ -22,6 +22,8 @@ export const telemetry: TelemetryData = {
   distance: 12.4,
   runtime: "00:15:32",
   voltage: 7.6,
+  trafficLight: "green",
+  buzzer: false,
 };
 
 /* ── System Log ───────────────────────────────── */

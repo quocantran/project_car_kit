@@ -22,10 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS, SERVER_HOST, SERVER_PORT
 from serial_service import SerialService
+from gpio_service import GpioService
 from car_protocol import (
     build_mode_command,
     build_reset_command,
     build_servo_command,
+    build_traffic_light_command,
 )
 from models import (
     CommandResponse,
@@ -38,6 +40,7 @@ from models import (
     SpeedUpdate,
     StatusResponse,
     TelemetryData,
+    TrafficLightCommand,
 )
 
 # ── Logging Setup ────────────────────────────────────────────
@@ -48,8 +51,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-# ── Shared Serial Service Instance ───────────────────────────
+# ── Shared Service Instances ─────────────────────────────────
 serial_service = SerialService()
+gpio_service = GpioService()
 
 
 # ── App Lifespan ─────────────────────────────────────────────
@@ -60,14 +64,19 @@ async def lifespan(app: FastAPI):
     logger.info("   Swagger UI: http://0.0.0.0:8000/docs")
     logger.info("   WebSocket:  ws://0.0.0.0:8000/ws")
 
+    # Initialize GPIO for traffic light LEDs
+    gpio_service.setup(button_callback=_on_button_toggle)
+    serial_service.set_gpio_service(gpio_service)
+
     # Attempt auto-connect on startup (non-blocking)
     asyncio.create_task(_auto_connect())
 
     yield
 
-    # Shutdown: disconnect serial
-    logger.info("Shutting down — disconnecting serial...")
+    # Shutdown: disconnect serial, cleanup GPIO
+    logger.info("Shutting down — disconnecting serial, cleaning up GPIO...")
     await serial_service.disconnect()
+    gpio_service.cleanup()
     logger.info("Goodbye!")
 
 
@@ -82,6 +91,20 @@ async def _auto_connect():
             logger.info("⚠️  Arduino not found — use POST /api/connect to connect manually")
     except Exception as e:
         logger.info(f"⚠️  Auto-connect failed: {e} — use POST /api/connect")
+
+
+def _on_button_toggle():
+    """Callback from GPIO button press — toggle traffic light."""
+    new_state = gpio_service.traffic_light
+    logger.info(f"🔘 Button pressed — traffic light is now {new_state}")
+    # The GPIO service already toggled the LEDs, now sync with Arduino
+    asyncio.create_task(_sync_traffic_light(new_state))
+
+
+async def _sync_traffic_light(state: str):
+    """Sync traffic light state to Arduino + broadcast to WebSocket clients."""
+    if serial_service.is_connected:
+        await serial_service.set_traffic_light(state)
 
 
 # ── FastAPI App ──────────────────────────────────────────────
@@ -268,6 +291,68 @@ async def get_distance():
     )
 
 
+# ── Traffic Light ────────────────────────────────────────────
+
+@app.get("/api/traffic-light", tags=["Traffic Light"])
+async def get_traffic_light():
+    """Get current traffic light state."""
+    return {
+        "state": serial_service.traffic_light,
+        "gpio_state": gpio_service.traffic_light,
+    }
+
+
+@app.post("/api/traffic-light", response_model=CommandResponse, tags=["Traffic Light"])
+async def set_traffic_light(command: TrafficLightCommand):
+    """
+    Set traffic light state.
+
+    - "green": Allow car movement, green LED ON, red LED OFF
+    - "red": Force stop, red LED ON, green LED OFF
+    """
+    # Update GPIO LEDs
+    gpio_service.set_traffic_light(command.state)
+
+    # Send command to Arduino
+    if serial_service.is_connected:
+        await serial_service.set_traffic_light(command.state)
+
+    return CommandResponse(
+        success=True,
+        message=f"Traffic light set to {command.state}",
+    )
+
+
+@app.post("/api/traffic-light/toggle", response_model=CommandResponse, tags=["Traffic Light"])
+async def toggle_traffic_light():
+    """Toggle traffic light between green and red."""
+    new_state = "red" if serial_service.traffic_light == "green" else "green"
+
+    gpio_service.set_traffic_light(new_state)
+    if serial_service.is_connected:
+        await serial_service.set_traffic_light(new_state)
+
+    return CommandResponse(
+        success=True,
+        message=f"Traffic light toggled to {new_state}",
+    )
+
+
+# ── Buzzer ───────────────────────────────────────────────────
+
+@app.post("/api/buzzer", response_model=CommandResponse, tags=["Buzzer"])
+async def set_buzzer_api(on: bool):
+    """Turn the physical buzzer on or off."""
+    gpio_service.set_buzzer(on)
+    serial_service.buzzer = on
+    await serial_service._broadcast_telemetry()
+    return CommandResponse(
+        success=True,
+        message=f"Buzzer set to {'ON' if on else 'OFF'}",
+    )
+
+
+
 # ══════════════════════════════════════════════════════════════
 #  WEBSOCKET ENDPOINT
 # ══════════════════════════════════════════════════════════════
@@ -405,6 +490,27 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif msg_type == "ping":
                 await websocket.send_json({"type": "pong", "data": {}})
+
+            elif msg_type == "traffic_light":
+                state = msg.get("state", "green")
+                if state in ("green", "red"):
+                    gpio_service.set_traffic_light(state)
+                    if serial_service.is_connected:
+                        await serial_service.set_traffic_light(state)
+                    await websocket.send_json({
+                        "type": "traffic_light_update",
+                        "data": {"state": state},
+                    })
+
+            elif msg_type == "buzzer":
+                on = msg.get("on", False)
+                gpio_service.set_buzzer(on)
+                serial_service.buzzer = on
+                await serial_service._broadcast_telemetry()
+                await websocket.send_json({
+                    "type": "command_response",
+                    "data": {"success": True, "message": f"Buzzer {'ON' if on else 'OFF'}"},
+                })
 
             else:
                 await websocket.send_json({

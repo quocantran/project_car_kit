@@ -60,6 +60,10 @@ const int ObstacleDetection = 35;
 
 unsigned int carSpeed_rocker = 250;
 
+// Traffic Light control — Raspberry Pi controls via N=50 command
+// true = green (allow movement), false = red (force stop)
+boolean traffic_light_green = true;
+
 /*══════════════════════════════════════════════════════════════
  * HAND TRACKING — Configurable Constants (dễ thay đổi)
  * Thay đổi các giá trị bên dưới để điều chỉnh hành vi theo dõi tay
@@ -388,6 +392,11 @@ void getIRData(void) {
 */
 void bluetooth_mode() {
   if (func_mode == Bluetooth) {
+    // Traffic light check: red light = force stop
+    if (!traffic_light_green) {
+      stop();
+      return;
+    }
     switch (mov_mode) {
     case LEFT:
       left(false, carSpeed_rocker);
@@ -426,6 +435,15 @@ void bluetooth_mode() {
 */
 void irremote_mode(void) {
   if (func_mode == IRremote) {
+    // Traffic light check: red light = force stop
+    if (!traffic_light_green) {
+      stop();
+      if (millis() - IR_PreMillis > 500) {
+        mov_mode = STOP;
+        IR_PreMillis = millis();
+      }
+      return;
+    }
     switch (mov_mode) {
     case FORWARD:
       forward(false, carSpeed);
@@ -456,6 +474,11 @@ void irremote_mode(void) {
 */
 void line_teacking_mode(void) {
   if (func_mode == LineTeacking) {
+    // Traffic light check: red light = force stop
+    if (!traffic_light_green) {
+      stop();
+      return;
+    }
     if (LineTeacking_Read_Middle) { // Detecting in the middle infrared tube
 
       forward(false, 180); // Control motor：the car moving forward
@@ -499,6 +522,11 @@ void obstacles_avoidance_mode(void) {
   static boolean first_is = true;
   uint8_t switc_ctrl = 0;
   if (func_mode == ObstaclesAvoidance) {
+    // Traffic light check: red light = force stop
+    if (!traffic_light_green) {
+      stop();
+      return;
+    }
     if (first_is == true) // Enter the mode for the first time, and modulate the
                           // steering gear to 90 degrees
     {
@@ -508,6 +536,7 @@ void obstacles_avoidance_mode(void) {
     uint8_t get_Distance = getDistance();
     if (function_xxx(get_Distance, 0, 20)) {
       stop();
+      mov_mode = STOP;
       /*
       ------------------------------------------------------------------------------------------------------
       ServoControl(30 * 1): 0 1 0 1 0 1 0 1
@@ -538,6 +567,7 @@ void obstacles_avoidance_mode(void) {
     } else // if (function_xxx(get_Distance, 20, 50))
     {
       forward(false, 150); // Control car forwar
+      mov_mode = FORWARD;
     }
     while (switc_ctrl) {
       switch (switc_ctrl) {
@@ -545,24 +575,29 @@ void obstacles_avoidance_mode(void) {
       case 5:
       case 6:
         forward(false, 150); // Control car forwar
+        mov_mode = FORWARD;
         switc_ctrl = 0;
         break;
       case 3:
         left(false, 250); // Control car left
+        mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 4:
         left(false, 250); // Control car left
+        mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 8:
       case 11:
         right(false, 250); // Control car right
+        mov_mode = RIGHT;
         switc_ctrl = 0;
         break;
       case 9:
       case 10:
         back(false, 150); // Control car Car backwards
+        mov_mode = BACK;
         switc_ctrl = 11;
         break;
       }
@@ -645,6 +680,13 @@ void hand_tracking_mode(void) {
 
   // ── STATE: TRACK_DISTANCE ──
   case HT_TRACK_DISTANCE: {
+    // Traffic light check: red light = force stop
+    if (!traffic_light_green) {
+      stop();
+      mov_mode = STOP;
+      ht_current_speed = 0;
+      return;
+    }
     if (millis() - ht_last_update < HT_UPDATE_INTERVAL)
       return;
     ht_last_update = millis();
@@ -876,12 +918,13 @@ void hand_tracking_mode(void) {
           unsigned long turn_duration;
           if (found_angle < 90) {
             // Tay bên PHẢI → servo chỉ sang PHẢI, xe quay PHẢI
-            turn_duration = angle_error * 12; // Quay phải cần nhiều thời gian hơn
+            turn_duration =
+                angle_error * 8; // Quay phải cần nhiều thời gian hơn
             right(false, HT_ALIGN_SPEED);
             mov_mode = RIGHT;
           } else {
             // Tay bên TRÁI → servo chỉ sang TRÁI, xe quay TRÁI
-            turn_duration = angle_error * 8;
+            turn_duration = angle_error * 12;
             left(false, HT_ALIGN_SPEED);
             mov_mode = LEFT;
           }
@@ -1281,8 +1324,8 @@ void CMD_Telemetry_Plus(void) {
   }
   // Send telemetry as JSON
   char buf[80];
-  sprintf(buf, "{\"d\":%d,\"s\":%d,\"dir\":%d,\"m\":%d}", dist, carSpeed_rocker,
-          dir, mode);
+  sprintf(buf, "{\"d\":%d,\"s\":%d,\"dir\":%d,\"m\":%d,\"tl\":%d}", dist,
+          carSpeed_rocker, dir, mode, traffic_light_green ? 1 : 0);
   Serial.print(buf);
 }
 
@@ -1433,6 +1476,15 @@ void getBTData_Plus(void) {
           func_mode = CMD_CarControlxxx;
           CMD_CarDirectionxxx = doc["D1"];
           CMD_CarSpeedxxx = doc["D2"];
+          Serial.print('{' + CommandSerialNumber + "_ok}");
+        } break;
+        case 50: { // Traffic Light control from Raspberry Pi
+          int d1 = doc["D1"];
+          traffic_light_green = (d1 == 1); // D1=1: green (go), D1=0: red (stop)
+          if (!traffic_light_green) {
+            stop();
+            mov_mode = STOP;
+          }
           Serial.print('{' + CommandSerialNumber + "_ok}");
         } break;
         case 100: {

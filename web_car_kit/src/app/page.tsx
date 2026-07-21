@@ -10,6 +10,7 @@ import {
   TelemetryPanel,
   QuickActions,
   RecordedVideos,
+  TrafficLight,
 } from "@/components/dashboard";
 import {
   systemLogs as initialLogs,
@@ -34,6 +35,8 @@ export default function DashboardPage() {
     sendReset,
     connectBLE,
     disconnectBLE,
+    sendTrafficLight,
+    sendBuzzer,
   } = useRobotWebSocket();
 
   // Derive connection status from both WS and BLE states
@@ -123,7 +126,14 @@ export default function DashboardPage() {
 
             {/* Right column: Quick Actions + Telemetry + Recorded Videos */}
             <div className="space-y-5">
-              <QuickActions />
+              <TrafficLight
+                currentLight={telemetry.trafficLight}
+                onChange={sendTrafficLight}
+              />
+              <QuickActions
+                buzzerActive={telemetry.buzzer}
+                onBuzzerToggle={sendBuzzer}
+              />
               <TelemetryPanel data={telemetry} />
               <RecordedVideos videos={recordedVideos} />
             </div>

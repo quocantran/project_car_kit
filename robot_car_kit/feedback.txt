@@ -1,1 +1,1 @@
-che do handtracking, sau khi dieu huong va tang toc xe van bi do, du backend van nhan duoc log, nhung thong so do khoang cach lai len rat cao
+doc va phan tich code cho toi, bay h toi muon trien khai 1  them che do den led, khi den xanh sang thi xe di chuyen, khi den do sang thi xe dung. them chuc nang nay vao trong cac che do di chuyen cua xe, va them 1 chuc nang tren web de dieu khien tin hieu den

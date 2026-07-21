@@ -21,6 +21,8 @@ export interface TelemetryData {
   distance: number;      // metres
   runtime: string;       // formatted HH:MM:SS
   voltage: number;       // V
+  trafficLight: "green" | "red";  // traffic light state
+  buzzer: boolean;       // buzzer status (on/off)
 }
 
 export interface SystemLogEntry {

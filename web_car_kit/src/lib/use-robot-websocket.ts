@@ -14,6 +14,8 @@ interface RobotTelemetry {
   is_connected: boolean;
   current_direction: string;
   current_mode: string;
+  traffic_light: string;
+  buzzer: boolean;
 }
 
 interface UseRobotWebSocketReturn {
@@ -40,6 +42,12 @@ interface UseRobotWebSocketReturn {
   connectBLE: (address?: string) => void;
   /** Disconnect from robot BLE */
   disconnectBLE: () => void;
+  /** Send traffic light control command */
+  sendTrafficLight: (state: "green" | "red") => void;
+  /** Current traffic light state */
+  trafficLight: "green" | "red";
+  /** Send buzzer toggle command */
+  sendBuzzer: (on: boolean) => void;
 }
 
 export function useRobotWebSocket(): UseRobotWebSocketReturn {
@@ -50,6 +58,8 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
     distance: 0,
     runtime: "00:00:00",
     voltage: 7.4,
+    trafficLight: "green",
+    buzzer: false,
   });
 
   const [bleConnected, setBleConnected] = useState(false);
@@ -145,8 +155,18 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
           speed: t.speed_percent,
           distance: t.distance / 100, // cm → m
           voltage: 7.4 * (t.battery / 100), // Estimated from battery %
+          trafficLight: (t.traffic_light as "green" | "red") || "green",
+          buzzer: t.buzzer || false,
         }));
         setBleConnected(t.is_connected);
+        break;
+      }
+      case "traffic_light_update": {
+        const d = msg.data as { state: "green" | "red" };
+        setTelemetry((prev) => ({
+          ...prev,
+          trafficLight: d.state,
+        }));
         break;
       }
       case "connection_status": {
@@ -236,6 +256,20 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
     sendJSON({ type: "disconnect" });
   }, [sendJSON]);
 
+  const sendTrafficLight = useCallback(
+    (state: "green" | "red") => {
+      sendJSON({ type: "traffic_light", state });
+    },
+    [sendJSON]
+  );
+
+  const sendBuzzer = useCallback(
+    (on: boolean) => {
+      sendJSON({ type: "buzzer", on });
+    },
+    [sendJSON]
+  );
+
   return {
     telemetry,
     bleConnected,
@@ -249,5 +283,8 @@ export function useRobotWebSocket(): UseRobotWebSocketReturn {
     sendReset,
     connectBLE,
     disconnectBLE,
+    sendTrafficLight,
+    trafficLight: telemetry.trafficLight,
+    sendBuzzer,
   };
 }

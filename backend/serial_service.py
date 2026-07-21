@@ -33,6 +33,7 @@ from car_protocol import (
     build_move_command,
     build_stop_command,
     build_telemetry_query,
+    build_traffic_light_command,
     parse_response,
     parse_telemetry_response,
 )
@@ -69,6 +70,10 @@ class SerialService:
         self.current_mode: str = "idle"
         self.last_distance: int = 0
         self.battery_percent: int = 100  # Mock value (no hardware sensor)
+        self.traffic_light: str = "green"  # "green" or "red"
+        self.buzzer: bool = False
+        self._gpio_service: Optional[object] = None
+        self._auto_buzzer_active: bool = False
 
         # WebSocket broadcast callbacks
         self._listeners: list[Callable] = []
@@ -310,6 +315,8 @@ class SerialService:
                 self.current_mode = telemetry["mode"]
                 if telemetry["speed"] > 0:
                     self.current_speed = telemetry["speed"]
+                if "traffic_light" in telemetry:
+                    self.traffic_light = telemetry["traffic_light"]
             else:
                 self._last_response = parse_response(raw)
 
@@ -397,6 +404,28 @@ class SerialService:
                 pass
         return self.last_distance
 
+    async def set_traffic_light(self, state: str) -> Optional[dict]:
+        """
+        Set traffic light state on Arduino (N=50 command).
+        state: "green" (allow movement) or "red" (force stop)
+        """
+        self.traffic_light = state
+        cmd = build_traffic_light_command(state)
+        logger.info(f"🚦 Traffic light → {state.upper()}, cmd={cmd}")
+        result = await self.send_command(cmd, wait_response=False)
+
+        # Broadcast state update to all WebSocket clients
+        await self._broadcast({
+            "type": "traffic_light_update",
+            "data": {"state": state},
+        })
+        await self._broadcast_telemetry()
+        return result
+
+    def set_gpio_service(self, gpio_service) -> None:
+        """Register the GPIO service reference for physical hardware control."""
+        self._gpio_service = gpio_service
+
     # ── Telemetry Loop ───────────────────────────────────────
 
     async def _telemetry_loop(self):
@@ -418,6 +447,30 @@ class SerialService:
                 # Simulate battery drain (mock — no real sensor)
                 if self.current_speed > 0:
                     self.battery_percent = max(0, self.battery_percent - 0.01)
+
+                # Auto-buzzer check: close obstacle while moving or turning in auto/sensor modes
+                if self._gpio_service:
+                    is_target_mode = self.current_mode in ["obstacle_avoidance", "hand_tracking"]
+                    is_close = 0 < self.last_distance < 15  # Closer than 15cm
+                    is_moving_or_turning = self.current_direction in [
+                        "back", "left", "right", 
+                        "forward_left", "forward_right", 
+                        "back_left", "back_right"
+                    ]
+                    
+                    if is_target_mode and is_close and is_moving_or_turning:
+                        if not self.buzzer:
+                            self.buzzer = True
+                            self._auto_buzzer_active = True
+                            self._gpio_service.set_buzzer(True)
+                            logger.info("⚠️ Auto-Buzzer: Close obstacle detected while backing/turning!")
+                    else:
+                        # Deactivate if it was turned on automatically (not manually by user)
+                        if self._auto_buzzer_active:
+                            self.buzzer = False
+                            self._auto_buzzer_active = False
+                            self._gpio_service.set_buzzer(False)
+                            logger.info("Auto-Buzzer deactivated: Clear path / normal state")
 
                 # Broadcast telemetry to all WebSocket clients
                 await self._broadcast_telemetry()
@@ -469,6 +522,8 @@ class SerialService:
                 "is_connected": self.is_connected,
                 "current_direction": self.current_direction,
                 "current_mode": self.current_mode,
+                "traffic_light": self.traffic_light,
+                "buzzer": self.buzzer,
             },
         })
 
@@ -485,6 +540,8 @@ class SerialService:
             "is_connected": self.is_connected,
             "current_direction": self.current_direction,
             "current_mode": self.current_mode,
+            "traffic_light": self.traffic_light,
+            "buzzer": self.buzzer,
         }
 
     def get_connection_status(self) -> dict:

@@ -149,9 +149,19 @@ def build_reset_command() -> str:
 def build_telemetry_query() -> str:
     """
     Build N=100 command to request full telemetry from Arduino.
-    Response: {"d":distance, "s":speed, "dir":direction, "m":mode}
+    Response: {"d":distance, "s":speed, "dir":direction, "m":mode, "tl":traffic_light}
     """
     cmd = {"N": 100, "H": _next_cmd_id()}
+    return json.dumps(cmd, separators=(",", ":"))
+
+
+def build_traffic_light_command(state: str) -> str:
+    """
+    Build N=50 command to set traffic light state on Arduino.
+    state: "green" (D1=1, allow movement) or "red" (D1=0, force stop)
+    """
+    d1 = 1 if state == "green" else 0
+    cmd = {"N": 50, "D1": d1, "H": _next_cmd_id()}
     return json.dumps(cmd, separators=(",", ":"))
 
 
@@ -226,8 +236,8 @@ def parse_telemetry_response(raw: str) -> Optional[dict]:
     """
     Parse the N=100 telemetry JSON response from Arduino.
 
-    Input:  '{"d":35,"s":200,"dir":3,"m":3}'
-    Output: {"distance": 35, "speed": 200, "direction": "forward", "mode": "bluetooth"}
+    Input:  '{"d":35,"s":200,"dir":3,"m":3,"tl":1}'
+    Output: {"distance": 35, "speed": 200, "direction": "forward", "mode": "bluetooth", "traffic_light": "green"}
     """
     try:
         # Find JSON object in the raw string
@@ -240,12 +250,16 @@ def parse_telemetry_response(raw: str) -> Optional[dict]:
 
         # Check if it has telemetry fields ("d", "s", "dir", "m")
         if "d" in data and "s" in data:
-            return {
+            result = {
                 "distance": data.get("d", 0),
                 "speed": data.get("s", 0),
                 "direction": TELEMETRY_DIR_MAP.get(data.get("dir", 0), "stop"),
                 "mode": TELEMETRY_MODE_MAP.get(data.get("m", 0), "idle"),
             }
+            # Parse traffic light state if present
+            if "tl" in data:
+                result["traffic_light"] = "green" if data["tl"] == 1 else "red"
+            return result
         return None
     except (json.JSONDecodeError, ValueError):
         return None

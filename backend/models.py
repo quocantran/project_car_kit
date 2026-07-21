@@ -32,6 +32,13 @@ class ModeCommand(BaseModel):
     mode: Literal["line_tracking", "obstacle_avoidance", "hand_tracking"]
 
 
+class TrafficLightCommand(BaseModel):
+    """Command to set traffic light state (controls LED on breadboard + Arduino)."""
+    state: Literal["green", "red"] = Field(
+        description='"green" = allow movement, "red" = force stop'
+    )
+
+
 class ConnectRequest(BaseModel):
     """Optional: specify serial port to connect to."""
     serial_port: Optional[str] = Field(
@@ -57,6 +64,8 @@ class TelemetryData(BaseModel):
     is_connected: bool
     current_direction: str = "stop"
     current_mode: str = "idle"
+    traffic_light: str = Field("green", description='Traffic light state: "green" or "red"')
+    buzzer: bool = Field(False, description="Buzzer state: True (ON) or False (OFF)")
 
 
 class StatusResponse(BaseModel):
@@ -82,14 +91,16 @@ class DistanceResponse(BaseModel):
 
 class WSIncomingMessage(BaseModel):
     """Message received from frontend via WebSocket."""
-    type: Literal["control", "speed", "servo", "mode", "reset", "ping"]
+    type: Literal["control", "speed", "servo", "mode", "reset", "traffic_light", "buzzer", "ping"]
     direction: Optional[str] = None
     speed: Optional[int] = None
     angle: Optional[int] = None
     mode: Optional[str] = None
+    state: Optional[str] = None  # For traffic_light: "green" or "red"
+    on: Optional[bool] = None     # For buzzer: true or false
 
 
 class WSOutgoingMessage(BaseModel):
     """Message sent to frontend via WebSocket."""
-    type: Literal["telemetry", "connection_status", "command_response", "error", "pong"]
+    type: Literal["telemetry", "connection_status", "command_response", "traffic_light_update", "buzzer_update", "error", "pong"]
     data: dict

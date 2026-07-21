@@ -16,7 +16,7 @@ SERIAL_PORT_PATTERNS = [
 ]
 
 # ── Telemetry Polling ────────────────────────────────────────
-TELEMETRY_INTERVAL = 1.0  # Seconds between telemetry polls
+TELEMETRY_INTERVAL = 0.4  # Seconds between telemetry polls
 
 # ── Server Configuration ─────────────────────────────────────
 SERVER_HOST = "0.0.0.0"
@@ -31,6 +31,13 @@ ALLOWED_ORIGINS = [
     "http://192.168.50.254:3000",
     "*",  # Allow any device on local WiFi network
 ]
+
+# ── GPIO Configuration (Raspberry Pi 4) ──────────────────────
+# BCM numbering — matches breadboard wiring via GPIO Extension Board
+GPIO_LED_RED_PIN = 17      # Pin 11 → LED Đỏ
+GPIO_LED_GREEN_PIN = 27    # Pin 13 → LED Xanh
+GPIO_BUZZER_PIN = 22       # Pin 15 → Buzzer
+GPIO_BUTTON_PIN = 23       # Pin 16 → Button (pull-up)
 
 # ── Arduino Protocol Defaults ────────────────────────────────
 DEFAULT_SPEED = 200  # Default PWM speed (0-255)

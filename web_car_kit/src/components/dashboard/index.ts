@@ -9,3 +9,4 @@ export { QuickActions } from "./quick-actions";
 export { RecordedVideos } from "./recorded-videos";
 export { DashboardCard } from "./dashboard-card";
 export { CircularGauge } from "./circular-gauge";
+export { TrafficLight } from "./traffic-light";

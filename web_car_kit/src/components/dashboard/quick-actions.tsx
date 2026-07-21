@@ -55,20 +55,32 @@ const actions: ActionItem[] = [
   },
 ];
 
-export function QuickActions() {
+interface QuickActionsProps {
+  buzzerActive?: boolean;
+  onBuzzerToggle?: (active: boolean) => void;
+}
+
+export function QuickActions({ buzzerActive = false, onBuzzerToggle }: QuickActionsProps) {
   const [activeActions, setActiveActions] = useState<Record<string, boolean>>(
     {}
   );
 
   const toggleAction = (id: string) => {
-    setActiveActions((prev) => ({ ...prev, [id]: !prev[id] }));
+    if (id === "buzzer" && onBuzzerToggle) {
+      onBuzzerToggle(!buzzerActive);
+    } else {
+      setActiveActions((prev) => ({ ...prev, [id]: !prev[id] }));
+    }
   };
 
   return (
     <DashboardCard title="Quick Actions">
       <div className="grid grid-cols-4 gap-2.5">
         {actions.map((action, index) => {
-          const isActive = activeActions[action.id] ?? false;
+          const isActive =
+            action.id === "buzzer"
+              ? buzzerActive
+              : activeActions[action.id] ?? false;
           return (
             <motion.button
               key={action.id}
