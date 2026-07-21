@@ -518,9 +518,13 @@ static boolean function_xxx(long xd, long sd, long ed) // f(x)
 
 /*Obstacle avoidance*/
 
+
 void obstacles_avoidance_mode(void) {
   static boolean first_is = true;
   uint8_t switc_ctrl = 0;
+  static unsigned long last_check_time = 0;
+  static uint8_t get_Distance = 150;
+
   if (func_mode == ObstaclesAvoidance) {
     // Traffic light check: red light = force stop
     if (!traffic_light_green) {
@@ -533,8 +537,14 @@ void obstacles_avoidance_mode(void) {
       ServoControl(90);
       first_is = false;
     }
-    uint8_t get_Distance = getDistance();
-    if (function_xxx(get_Distance, 0, 20)) {
+    
+    // Rate limit readings to 60ms to prevent overlapping echoes (which return false 150cm)
+    if (millis() - last_check_time >= 60) {
+      get_Distance = getDistance();
+      last_check_time = millis();
+    }
+
+    if (function_xxx(get_Distance, 0, 25)) { // Increased from 20 to 25 for earlier detection
       stop();
       mov_mode = STOP;
       /*
@@ -554,20 +564,35 @@ void obstacles_avoidance_mode(void) {
         ServoControl(30 * i);
         get_Distance = getDistance();
         delays(200);
-        if (function_xxx(get_Distance, 0, 5)) {
+        if (function_xxx(get_Distance, 0, 10)) { // Changed from 5 to 10 for backing up earlier
           switc_ctrl = 10;
           break;
         } else if (function_xxx(get_Distance, 0,
-                                20)) // How many cm in the front have obstacles?
+                                25)) // How many cm in the front have obstacles? (Increased from 20 to 25)
         {
           switc_ctrl += i;
         }
       }
       ServoControl(90);
-    } else // if (function_xxx(get_Distance, 20, 50))
+    } else // if (function_xxx(get_Distance, 25, 50))
     {
-      forward(false, 150); // Control car forwar
+      forward(false, 150); // Control car forward
       mov_mode = FORWARD;
+      
+      // Gentle sweep: 75 -> 90 -> 105 -> 90 to catch angled/corner wall reflections (non-blocking)
+      static unsigned long last_sweep_time = 0;
+      static uint8_t sweep_state = 0; // 0: 75, 1: 90, 2: 105, 3: 90
+      
+      if (millis() - last_sweep_time >= 150) { // Change angle every 150ms
+        last_sweep_time = millis();
+        sweep_state = (sweep_state + 1) % 4;
+        
+        uint8_t angle = 90;
+        if (sweep_state == 0) angle = 75;
+        else if (sweep_state == 2) angle = 105;
+        
+        servoWriteNonBlocking(angle);
+      }
     }
     while (switc_ctrl) {
       switch (switc_ctrl) {
@@ -579,18 +604,18 @@ void obstacles_avoidance_mode(void) {
         switc_ctrl = 0;
         break;
       case 3:
-        left(false, 250); // Control car left
+        left(false, 160); // Control car left (reduced from 250 to prevent over-rotation)
         mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 4:
-        left(false, 250); // Control car left
+        left(false, 160); // Control car left (reduced from 250 to prevent over-rotation)
         mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 8:
       case 11:
-        right(false, 250); // Control car right
+        right(false, 160); // Control car right (reduced from 250 to prevent over-rotation)
         mov_mode = RIGHT;
         switc_ctrl = 0;
         break;
