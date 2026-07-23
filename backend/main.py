@@ -504,6 +504,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif msg_type == "buzzer":
                 on = msg.get("on", False)
+                logger.info("WebSocket buzzer request: on=%s", on)
                 gpio_service.set_buzzer(on)
                 serial_service.buzzer = on
                 await serial_service._broadcast_telemetry()

@@ -67,7 +67,8 @@ class GpioService:
         # Output pins
         GPIO.setup(GPIO_LED_RED_PIN, GPIO.OUT, initial=GPIO.LOW)
         GPIO.setup(GPIO_LED_GREEN_PIN, GPIO.OUT, initial=GPIO.HIGH)  # Start green
-        GPIO.setup(GPIO_BUZZER_PIN, GPIO.OUT, initial=GPIO.LOW)
+        # This buzzer circuit is active-LOW: HIGH = OFF, LOW = ON.
+        GPIO.setup(GPIO_BUZZER_PIN, GPIO.OUT, initial=GPIO.HIGH)
 
         # Input pin with pull-up (button connects to GND when pressed)
         GPIO.setup(GPIO_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -106,7 +107,7 @@ class GpioService:
             try:
                 GPIO.output(GPIO_LED_RED_PIN, GPIO.LOW)
                 GPIO.output(GPIO_LED_GREEN_PIN, GPIO.LOW)
-                GPIO.output(GPIO_BUZZER_PIN, GPIO.LOW)
+                GPIO.output(GPIO_BUZZER_PIN, GPIO.HIGH)
                 GPIO.cleanup()
                 logger.info("GPIO cleaned up")
             except Exception as e:
@@ -132,10 +133,24 @@ class GpioService:
         logger.info(f"🚦 Traffic light → {state.upper()}")
 
     def set_buzzer(self, on: bool) -> None:
-        """Turn buzzer on/off."""
+        """Turn the active-LOW buzzer on or off."""
         self.buzzer_on = on
+        level = GPIO.LOW if on else GPIO.HIGH
         if GPIO_AVAILABLE and self._initialized:
-            GPIO.output(GPIO_BUZZER_PIN, GPIO.HIGH if on else GPIO.LOW)
+            GPIO.output(GPIO_BUZZER_PIN, level)
+            logger.info(
+                "Buzzer command: on=%s -> GPIO%d=%s",
+                on,
+                GPIO_BUZZER_PIN,
+                "HIGH" if level == GPIO.HIGH else "LOW",
+            )
+        else:
+            logger.warning(
+                "Buzzer command not sent to hardware: on=%s, gpio_available=%s, initialized=%s",
+                on,
+                GPIO_AVAILABLE,
+                self._initialized,
+            )
 
     def _on_button_press(self, channel: int) -> None:
         """

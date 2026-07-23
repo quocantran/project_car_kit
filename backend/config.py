@@ -17,6 +17,7 @@ SERIAL_PORT_PATTERNS = [
 
 # ── Telemetry Polling ────────────────────────────────────────
 TELEMETRY_INTERVAL = 0.4  # Seconds between telemetry polls
+AUTO_BUZZER_DISTANCE_THRESHOLD = 25  # Khoảng cách cảnh báo còi (cm)
 
 # ── Server Configuration ─────────────────────────────────────
 SERVER_HOST = "0.0.0.0"

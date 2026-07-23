@@ -27,6 +27,7 @@ from config import (
     SERIAL_RESPONSE_TIMEOUT,
     SERIAL_TIMEOUT,
     TELEMETRY_INTERVAL,
+    AUTO_BUZZER_DISTANCE_THRESHOLD,
 )
 from car_protocol import (
     build_distance_query,
@@ -74,6 +75,7 @@ class SerialService:
         self.buzzer: bool = False
         self._gpio_service: Optional[object] = None
         self._auto_buzzer_active: bool = False
+        self._buzzer_timer_task: Optional[asyncio.Task] = None
 
         # WebSocket broadcast callbacks
         self._listeners: list[Callable] = []
@@ -306,6 +308,26 @@ class SerialService:
             raw = self._response_buffer[start_idx:end_idx]
             self._response_buffer = self._response_buffer[end_idx:]
 
+            # Try to parse custom event from Arduino
+            if '"event"' in raw:
+                try:
+                    import json
+                    event_data = json.loads(raw)
+                    event = event_data.get("event")
+                    if event == "buzzer_on":
+                        self.buzzer = True
+                        if self._gpio_service:
+                            self._gpio_service.set_buzzer(True)
+                        asyncio.create_task(self._broadcast_telemetry())
+                    elif event == "buzzer_off":
+                        self.buzzer = False
+                        if self._gpio_service:
+                            self._gpio_service.set_buzzer(False)
+                        asyncio.create_task(self._broadcast_telemetry())
+                except Exception as e:
+                    logger.error(f"Error parsing custom event: {e}")
+                continue
+
             # Try to parse as telemetry JSON first (N=100 response)
             telemetry = parse_telemetry_response(raw)
             if telemetry:
@@ -426,6 +448,44 @@ class SerialService:
         """Register the GPIO service reference for physical hardware control."""
         self._gpio_service = gpio_service
 
+    def _start_auto_buzzer(self, duration: float) -> None:
+        """Start the auto-buzzer and schedule a non-blocking timeout task."""
+        self._auto_buzzer_active = True
+        self.buzzer = True
+        if self._gpio_service:
+            self._gpio_service.set_buzzer(True)
+        asyncio.create_task(self._broadcast_telemetry())
+
+        # Cancel any active timer task
+        if self._buzzer_timer_task and not self._buzzer_timer_task.done():
+            self._buzzer_timer_task.cancel()
+
+        self._buzzer_timer_task = asyncio.create_task(self._buzzer_timeout(duration))
+
+    async def _buzzer_timeout(self, duration: float) -> None:
+        """Async task that deactivates the buzzer after the specified duration."""
+        try:
+            await asyncio.sleep(duration)
+            if self._auto_buzzer_active:
+                self.buzzer = False
+                self._auto_buzzer_active = False
+                if self._gpio_service:
+                    self._gpio_service.set_buzzer(False)
+                await self._broadcast_telemetry()
+        except asyncio.CancelledError:
+            pass
+
+    def _stop_auto_buzzer(self) -> None:
+        """Stop the auto-buzzer immediately and cancel any pending timeout task."""
+        self.buzzer = False
+        self._auto_buzzer_active = False
+        if self._gpio_service:
+            self._gpio_service.set_buzzer(False)
+        asyncio.create_task(self._broadcast_telemetry())
+
+        if self._buzzer_timer_task and not self._buzzer_timer_task.done():
+            self._buzzer_timer_task.cancel()
+
     # ── Telemetry Loop ───────────────────────────────────────
 
     async def _telemetry_loop(self):
@@ -448,29 +508,28 @@ class SerialService:
                 if self.current_speed > 0:
                     self.battery_percent = max(0, self.battery_percent - 0.01)
 
-                # Auto-buzzer check: close obstacle while moving or turning in auto/sensor modes
-                if self._gpio_service:
-                    is_target_mode = self.current_mode in ["obstacle_avoidance", "hand_tracking"]
-                    is_close = 0 < self.last_distance < 15  # Closer than 15cm
-                    is_moving_or_turning = self.current_direction in [
-                        "back", "left", "right", 
-                        "forward_left", "forward_right", 
-                        "back_left", "back_right"
-                    ]
-                    
-                    if is_target_mode and is_close and is_moving_or_turning:
-                        if not self.buzzer:
-                            self.buzzer = True
-                            self._auto_buzzer_active = True
-                            self._gpio_service.set_buzzer(True)
-                            logger.info("⚠️ Auto-Buzzer: Close obstacle detected while backing/turning!")
-                    else:
-                        # Deactivate if it was turned on automatically (not manually by user)
-                        if self._auto_buzzer_active:
-                            self.buzzer = False
-                            self._auto_buzzer_active = False
-                            self._gpio_service.set_buzzer(False)
-                            logger.info("Auto-Buzzer deactivated: Clear path / normal state")
+                # Sound immediately for an obstacle within threshold in avoidance mode.
+                is_target_mode = self.current_mode == "obstacle_avoidance"
+                is_close = 0 < self.last_distance < AUTO_BUZZER_DISTANCE_THRESHOLD
+                logger.info(
+                    "Auto-buzzer check: distance=%scm, threshold=%scm, mode=%s, "
+                    "direction=%s, target_mode=%s, close=%s",
+                    self.last_distance,
+                    AUTO_BUZZER_DISTANCE_THRESHOLD,
+                    self.current_mode,
+                    self.current_direction,
+                    is_target_mode,
+                    is_close,
+                )
+
+                if is_target_mode and is_close:
+                    # Start the warning immediately; direction does not matter.
+                    if not self.buzzer and not self._auto_buzzer_active:
+                        self._start_auto_buzzer(2.0)
+                else:
+                    # Stop when avoidance mode is left or the obstacle is cleared.
+                    if self._auto_buzzer_active:
+                        self._stop_auto_buzzer()
 
                 # Broadcast telemetry to all WebSocket clients
                 await self._broadcast_telemetry()

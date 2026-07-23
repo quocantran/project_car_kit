@@ -200,6 +200,19 @@ unsigned int getDistance(void) { // Getting distance
 
   // Timeout 25000 microseconds (~4.2 mét). Nếu quá tầm đo, pulseIn trả về 0.
   unsigned long duration = pulseIn(ECHO_PIN, HIGH, 25000);
+
+  // Method 1: If first pulse failed, retry immediately to filter transient
+  // specular reflection dropouts
+  if (duration == 0) {
+    delayMicroseconds(500); // Small pause
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    duration = pulseIn(ECHO_PIN, HIGH, 25000);
+  }
+
   if (duration == 0) {
     tempda_x = 150; // Không có vật cản / ngoài tầm đo
   } else {
@@ -518,12 +531,19 @@ static boolean function_xxx(long xd, long sd, long ed) // f(x)
 
 /*Obstacle avoidance*/
 
-
 void obstacles_avoidance_mode(void) {
   static boolean first_is = true;
   uint8_t switc_ctrl = 0;
-  static unsigned long last_check_time = 0;
   static uint8_t get_Distance = 150;
+
+  static unsigned long last_sweep_time = 0;
+  static uint8_t sweep_state =
+      0; // 0: 50, 1: 90, 2: 130, 3: 90 (Method 3: wider sweep)
+  static uint8_t current_angle = 90;
+
+  // Method 2: Monotonic Jump Filter history variables
+  static uint8_t last_valid_dist = 150;
+  static uint8_t spike_counter = 0;
 
   if (func_mode == ObstaclesAvoidance) {
     // Traffic light check: red light = force stop
@@ -531,102 +551,132 @@ void obstacles_avoidance_mode(void) {
       stop();
       return;
     }
-    if (first_is == true) // Enter the mode for the first time, and modulate the
-                          // steering gear to 90 degrees
+    if (first_is == true) // Enter the mode for the first time
     {
       ServoControl(90);
       first_is = false;
-    }
-    
-    // Rate limit readings to 60ms to prevent overlapping echoes (which return false 150cm)
-    if (millis() - last_check_time >= 60) {
-      get_Distance = getDistance();
-      last_check_time = millis();
+      current_angle = 90;
+      sweep_state = 1;
+      last_sweep_time = millis();
+      last_valid_dist = 150;
+      spike_counter = 0;
     }
 
-    if (function_xxx(get_Distance, 0, 25)) { // Increased from 20 to 25 for earlier detection
+    // 1. Gentle non-blocking sweep while moving forward to capture angled wall
+    // reflections
+    if (millis() - last_sweep_time >= 120) { // Every 120ms
+      // Measure at the current settled angle
+      uint8_t measured_dist = getDistance();
+
+      // Method 2: Monotonic Jump Filter
+      // If the sensor suddenly reports 150cm (no obstacle), but the last valid
+      // reading was close (< 35cm), ignore the jump for up to 3 cycles (approx
+      // 360ms) to bypass temporary specular reflection dropouts.
+      if (measured_dist == 150 && last_valid_dist < 35) {
+        spike_counter++;
+        if (spike_counter <= 3) {
+          get_Distance = last_valid_dist; // Hold the last close distance
+        } else {
+          get_Distance = 150; // Confirm obstacle is actually gone
+          last_valid_dist = 150;
+          spike_counter = 0;
+        }
+      } else {
+        get_Distance = measured_dist;
+        last_valid_dist = measured_dist;
+        spike_counter = 0;
+      }
+
+      // Select next sweep angle (50 -> 90 -> 130 -> 90) and move servo
+      sweep_state = (sweep_state + 1) % 4;
+      if (sweep_state == 0)
+        current_angle = 50;
+      else if (sweep_state == 2)
+        current_angle = 130;
+      else
+        current_angle = 90;
+
+      servoWriteNonBlocking(current_angle);
+      last_sweep_time = millis();
+    }
+
+    // 2. Stop-and-Scan Decision
+    if (function_xxx(get_Distance, 0, 25)) { // Obstacle detected by the sweep
       stop();
       mov_mode = STOP;
-      /*
-      ------------------------------------------------------------------------------------------------------
-      ServoControl(30 * 1): 0 1 0 1 0 1 0 1
-      ServoControl(30 * 3): 0 0 1 1 0 0 1 1
-      ServoControl(30 * 5): 0 0 0 0 1 1 1 1
-      1 2 4 >>>             0 1 2 3 4 5 6 7
-      1 3 5 >>>             0 1 3 4 5 6 5 9
-      ------------------------------------------------------------------------------------------------------
-      Truth table of obstacle avoidance state
-      */
+
+      // Perform 3-point wide scan (30, 90, 150) to make escape decision
       for (int i = 1; i < 6;
            i +=
-           2) // 1、3、5 Omnidirectional detection of obstacle avoidance status
+           2) // 1, 3, 5 Omnidirectional detection of obstacle avoidance status
       {
         ServoControl(30 * i);
         get_Distance = getDistance();
         delays(200);
-        if (function_xxx(get_Distance, 0, 10)) { // Changed from 5 to 10 for backing up earlier
+        if (function_xxx(get_Distance, 0, 10)) { // 10cm for backing up earlier
           switc_ctrl = 10;
           break;
         } else if (function_xxx(get_Distance, 0,
-                                25)) // How many cm in the front have obstacles? (Increased from 20 to 25)
+                                25)) // How many cm in the front have obstacles?
+                                     // (25cm safety)
         {
           switc_ctrl += i;
         }
       }
       ServoControl(90);
-    } else // if (function_xxx(get_Distance, 25, 50))
-    {
-      forward(false, 150); // Control car forward
+      current_angle = 90; // Reset sweep state to center
+      sweep_state = 1;
+    } else {
+      forward(false, 135); // Control car forward (speed 135)
       mov_mode = FORWARD;
-      
-      // Gentle sweep: 75 -> 90 -> 105 -> 90 to catch angled/corner wall reflections (non-blocking)
-      static unsigned long last_sweep_time = 0;
-      static uint8_t sweep_state = 0; // 0: 75, 1: 90, 2: 105, 3: 90
-      
-      if (millis() - last_sweep_time >= 150) { // Change angle every 150ms
-        last_sweep_time = millis();
-        sweep_state = (sweep_state + 1) % 4;
-        
-        uint8_t angle = 90;
-        if (sweep_state == 0) angle = 75;
-        else if (sweep_state == 2) angle = 105;
-        
-        servoWriteNonBlocking(angle);
-      }
+    }
+    boolean escape_buzzer_active = false;
+    if (switc_ctrl == 3 || switc_ctrl == 4 || switc_ctrl == 8 || switc_ctrl == 9 || switc_ctrl == 10 || switc_ctrl == 11) {
+      Serial.print("{\"event\":\"buzzer_on\"}");
+      escape_buzzer_active = true;
     }
     while (switc_ctrl) {
       switch (switc_ctrl) {
       case 1:
       case 5:
       case 6:
-        forward(false, 150); // Control car forwar
+        forward(false, 135); // Control car forward (speed 135)
         mov_mode = FORWARD;
         switc_ctrl = 0;
         break;
       case 3:
-        left(false, 160); // Control car left (reduced from 250 to prevent over-rotation)
+        left(false, 160); // Control car left (turn speed 160)
         mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 4:
-        left(false, 160); // Control car left (reduced from 250 to prevent over-rotation)
+        left(false, 160); // Control car left (turn speed 160)
         mov_mode = LEFT;
         switc_ctrl = 0;
         break;
       case 8:
       case 11:
-        right(false, 160); // Control car right (reduced from 250 to prevent over-rotation)
+        right(false, 140); // Control car right (turn speed 140)
         mov_mode = RIGHT;
         switc_ctrl = 0;
         break;
       case 9:
       case 10:
-        back(false, 150); // Control car Car backwards
+        back(
+            false,
+            140); // Control car backwards (high torque speed 180 for reversing)
         mov_mode = BACK;
         switc_ctrl = 11;
         break;
       }
       ServoControl(90);
+      current_angle = 90; // Reset sweep state to center
+      sweep_state = 1;
+    }
+    if (escape_buzzer_active) {
+      stop();
+      mov_mode = STOP;
+      Serial.print("{\"event\":\"buzzer_off\"}");
     }
   } else {
     first_is = true;
